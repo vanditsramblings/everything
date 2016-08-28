@@ -80,10 +80,22 @@ public class KafkaFileSender {
 		KafkaFileSender sender=new KafkaFileSender();
 		boolean result=false;
 		if(sender.parseArgs(args)){
+			
+			sender.printArgs();
+			
 			sender.init();
 
 			sender.send();
 		}
+	}
+	
+	private void printArgs() {
+		System.out.println("#########################################################");
+		System.out.println("Starting Sender with following arguments : ");
+		System.out.println("BROKER LIST    : "+brokerList);
+		System.out.println("TOPIC          : "+topic);
+		System.out.println("FILE	       : "+file);
+		System.out.println("#########################################################");
 	}
 
 	private void send() {
