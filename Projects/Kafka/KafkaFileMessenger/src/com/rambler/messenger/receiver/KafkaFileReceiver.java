@@ -1,37 +1,46 @@
-package com.rambler.messenger.sender;
+package com.rambler.messenger.receiver;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
-public class KafkaFileSender {
+import com.rambler.messenger.receiver.listener.FileReceivedListener;
 
+public class KafkaFileReceiver {
 	private String brokerList="";
 	private String topic="";
-	private String file="";
-	private Properties senderProps=new Properties();
-	private Producer<String, Map> producer;
-
-	// Serializers/Deserializers
-	public static final String STRING_SERIALIZER_URI = "org.apache.kafka.common.serialization.StringSerializer";
-	public static final String MAP_SERIALIZER_URI = "com.rambler.messenger.sender.serializer.KafkaMapSerializer";
+	private String groupId="kafkagroup";
+	private String clientId="client1";
+	private Properties receiverProps=new Properties();
+	private KafkaConsumer<String, Map> receiver;
+	private FileReceivedListener listener;
+	private int pollInterval=100; //default
+	
 	public static int BUFFER=2048;
+	
+	// Serializers/Deserializers
+	public static final String STRING_DESERIALIZER_URI = "org.apache.kafka.common.serialization.StringDeserializer";		
+	public static final String MAP_DESERIALIZER_URI = "com.rambler.messenger.receiver.deserializer.KafkaMapDeserializer";
+
+
+	
+	
 
 	public String usage="Usage :\n"
 			+ "-b|--broker-list :Comma separated list of brokers\n"
 			+ "-t|--topic :topic name \n"
-			+ "-f|--file :absolute path of file to be sent \n"
+			+ "-g|--group-id :group id \n"
+			+ "-p|--poll-interval : Poll interval\n[optional]"
+			+ "-c|--cleint-id : client id [optional]\n"
 			+ "--help print help";
 
 	public boolean parseArgs(String[] args) {
@@ -58,13 +67,21 @@ public class KafkaFileSender {
 					return false;
 				}
 			}
-			if(args[i].equals("-f")||args[i].equals("--file")){
+			if(args[i].equals("-g")||args[i].equals("--group-id")){
 				if(!args[i+1].isEmpty() &&  !args[i+1].startsWith("-"))
-					file=args[i+1];
+					groupId=args[i+1];
 				else{
-					printError("[-f]||[--file]");
+					printError("[-g]||[--group-id]");
 					return false;
 				}
+			}
+			if(args[i].equals("-c")||args[i].equals("--client-id")){
+				if(!args[i+1].isEmpty() &&  !args[i+1].startsWith("-"))
+					clientId=args[i+1];
+			}
+			if(args[i].equals("-p")||args[i].equals("--poll-interval")){
+				if(!args[i+1].isEmpty() &&  !args[i+1].startsWith("-"))
+					pollInterval=Integer.parseInt(args[i+1]);
 			}
 			if(args[i].equals("--help")){
 				printUsage();
@@ -77,39 +94,30 @@ public class KafkaFileSender {
 
 	public static void main(String args[]){
 
-		KafkaFileSender sender=new KafkaFileSender();
+		KafkaFileReceiver receiver=new KafkaFileReceiver();
 		boolean result=false;
-		if(sender.parseArgs(args)){
-			
-			sender.printArgs();
-			
-			sender.init();
+		if(receiver.parseArgs(args)){
+			receiver.printArgs();
+			receiver.init();
 
-			sender.send();
+			receiver.startListener();
 		}
 	}
-	
+
 	private void printArgs() {
 		System.out.println("#########################################################");
-		System.out.println("Starting Sender with following arguments : ");
+		System.out.println("Starting Receiver with following arguments : ");
 		System.out.println("BROKER LIST    : "+brokerList);
 		System.out.println("TOPIC          : "+topic);
-		System.out.println("FILE	       : "+file);
+		System.out.println("GROUP ID       : "+groupId);
+		System.out.println("CLIENT ID      : "+clientId);
+		System.out.println("POLL INTERVAL  : "+pollInterval);
 		System.out.println("#########################################################");
 	}
 
-	private void send() {
-		byte[] fileArray=getFileAsBytes(file);
-		File fileToTransfer=new File(file);
-		if(fileArray!=null){
-			HashMap<String,byte[]> messageMap=new HashMap<String,byte[]>();
-			messageMap.put(fileToTransfer.getName(), fileArray);
-			
-			System.out.println("Sending file : "+file);
-			final Object message = new ProducerRecord<String, Map>(topic,Integer.toString(getMessageId()), messageMap);
-			producer.send((ProducerRecord<String, Map>) message);
-			System.out.println("File Sent");
-		}
+
+	public void startListener(){
+		listener.start();
 	}
 
 	private int getMessageId() {
@@ -154,13 +162,22 @@ public class KafkaFileSender {
 		//Initializing properties
 
 		final Properties props = new Properties();
-		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, STRING_SERIALIZER_URI);	
-		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, MAP_SERIALIZER_URI);
-		props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,brokerList);
-		senderProps = props;
+		props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,brokerList);
+		props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+		props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "1000");
+		props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "30000");
+		props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+		props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER_URI);
+		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, MAP_DESERIALIZER_URI);
+		receiverProps = props;
 
-		//Intializing KafkaProducer
-		producer = new KafkaProducer<>(senderProps);
+		//Intializing KafkaConsumer
+		receiver = new KafkaConsumer<String, Map>(receiverProps);
+		receiver.subscribe(Arrays.asList(topic));
+		
+		listener=new FileReceivedListener(receiver,pollInterval); 
+		
 
 	}
 
