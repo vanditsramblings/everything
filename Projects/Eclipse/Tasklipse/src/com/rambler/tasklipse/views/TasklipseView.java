@@ -3,6 +3,10 @@ package com.rambler.tasklipse.views;
 
 import java.util.ArrayList;
 
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IWorkspace;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -13,6 +17,7 @@ import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.part.ViewPart;
@@ -22,7 +27,10 @@ import com.rambler.tasklipse.model.TaskColumn;
 import com.rambler.tasklipse.provider.TasklipseLabelProvider;
 import com.rambler.tasklipse.util.TasklipseUtils;
 
-
+/**
+ * @author vandit
+ * 
+ */
 
 public class TasklipseView extends ViewPart {
 
@@ -35,6 +43,10 @@ public class TasklipseView extends ViewPart {
 	TableViewer viewer=null;
 	TasklipseContentProvider contentProvider=new TasklipseContentProvider();
 	TasklipseLabelProvider labelProvider=new TasklipseLabelProvider();
+	IResourceChangeListener resourceChangedListener=null;
+	
+	
+	public static boolean TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER=true;
 
 	ArrayList<Task> tasks=new ArrayList<Task>();
 	/**
@@ -111,6 +123,8 @@ public class TasklipseView extends ViewPart {
 		//Initializing table
 		try {
 			initTable(parent);
+			if(TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER)
+				addResourceChangeListener();
 		} catch (CoreException e) {
 			System.out.println("Error occurred while initializing table");
 			e.printStackTrace();
@@ -118,10 +132,34 @@ public class TasklipseView extends ViewPart {
 	}  
 
 
+	private void addResourceChangeListener() {
+
+		IWorkspace workspace = ResourcesPlugin.getWorkspace();
+		resourceChangedListener = new IResourceChangeListener() {
+
+			@Override
+			public void resourceChanged(IResourceChangeEvent event) {
+				try {
+					if (event.getType() != IResourceChangeEvent.POST_CHANGE)
+						return;
+					tasks=TasklipseUtils.getTaskListForAllProjects();
+				} catch (CoreException e) {
+					e.printStackTrace();
+				}
+				Display.getDefault().asyncExec(new Runnable() {
+					public void run() {
+						viewer.setInput(tasks);
+						viewer.refresh();
+					}
+				});
+			}
+		};
+		workspace.addResourceChangeListener(resourceChangedListener);
+
+	}
+
 	private void createTable(){
-
 		table = viewer.getTable();
-
 		table.setHeaderVisible(true);
 		table.setLinesVisible(true);
 	}
@@ -250,6 +288,13 @@ public class TasklipseView extends ViewPart {
 
 	public Object getAdapter(Class adapter) { 
 		return super.getAdapter(adapter);
+	}
+
+	@Override
+	public void dispose(){
+		IWorkspace workspace = ResourcesPlugin.getWorkspace();
+		workspace.removeResourceChangeListener(resourceChangedListener);
+		viewer=null;
 	}
 
 	public class TasklipseContentProvider implements IStructuredContentProvider{

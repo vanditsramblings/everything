@@ -12,6 +12,11 @@ import org.eclipse.core.runtime.CoreException;
 
 import com.rambler.tasklipse.model.Task;
 
+/**
+ * @author vandit
+ * 
+ */
+
 public class TasklipseUtils {
 
 	public static IProject getProject(String projectName){
@@ -29,15 +34,36 @@ public class TasklipseUtils {
 		return Arrays.asList(markers);
 	}
 
-	public static  List<IMarker>  getTaskListForAllProjects() throws CoreException{
-		ArrayList<IMarker> markersList=new ArrayList<IMarker>();
+	public static  ArrayList<Task>  getTaskListForAllProjects() throws CoreException{
+		ArrayList<Task> taskList=new ArrayList<Task>();
 		for(IProject project:getAllProjects()){
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
-			markersList.addAll(Arrays.asList(markers));
-			//TODO : Convert each marker to a Task and return a task list
-			Task task=new Task();
+			for(IMarker marker:markers){
+				Task task=getTask(marker);
+				taskList.add(task);
+			}
 		}
-		return markersList;
+		return taskList;
+	}
+
+	private static Task getTask(IMarker marker) {
+		String type="";
+		long createdTime=0;
+		try{
+			type=marker.getType();
+		}
+		catch(CoreException e){
+			type="na";
+		}
+		try{
+			createdTime=marker.getCreationTime();
+		}
+		catch(CoreException e){
+			createdTime=1;
+		}
+		
+		Task task=new Task(type,type,"1",marker.getAttribute(IMarker.MESSAGE,"na"),marker.getAttribute(IMarker.TASK,"na"),createdTime,marker.getAttribute(IMarker.LOCATION,"1"),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
+		return task;
 	}
 
 	public static String getTaskType(IMarker marker) {

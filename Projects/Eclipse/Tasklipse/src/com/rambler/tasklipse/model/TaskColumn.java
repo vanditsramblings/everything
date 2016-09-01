@@ -1,5 +1,10 @@
 package com.rambler.tasklipse.model;
 
+/**
+ * @author vandit
+ * 
+ */
+
 public enum TaskColumn {
 
 	NAME("Name","STRING",100,0),
