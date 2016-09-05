@@ -10,6 +10,8 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 
+import search.MessagePatternMatcher;
+
 import com.rambler.tasklipse.model.Task;
 
 /**
@@ -19,11 +21,13 @@ import com.rambler.tasklipse.model.Task;
 
 public class TasklipseUtils {
 
+	public static final String TASKLIPSE_PATTERN_TASK="#$";
+
 	public static IProject getProject(String projectName){
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
 		return project;
 	}
-	
+
 	public static List<IProject> getAllProjects(){
 		IProject[] projects = ResourcesPlugin.getWorkspace().getRoot().getProjects();
 		return Arrays.asList(projects);
@@ -40,7 +44,8 @@ public class TasklipseUtils {
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 			for(IMarker marker:markers){
 				Task task=getTask(marker);
-				taskList.add(task);
+				if(task!=null)
+					taskList.add(task);
 			}
 		}
 		return taskList;
@@ -61,8 +66,14 @@ public class TasklipseUtils {
 		catch(CoreException e){
 			createdTime=1;
 		}
-		
-		Task task=new Task(type,type,"1",marker.getAttribute(IMarker.MESSAGE,"na"),marker.getAttribute(IMarker.TASK,"na"),createdTime,marker.getAttribute(IMarker.LOCATION,"1"),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
+
+		String message=marker.getAttribute(IMarker.MESSAGE,"na");
+
+		if(!message.contains(TASKLIPSE_PATTERN_TASK)){
+			return null;
+		}
+
+		Task task=new Task(marker.getAttribute(IMarker.MARKER, "na"),type,"1",message,marker.getAttribute(IMarker.TASK,"na"),createdTime,marker.getAttribute(IMarker.LOCATION,"1"),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
 		return task;
 	}
 
