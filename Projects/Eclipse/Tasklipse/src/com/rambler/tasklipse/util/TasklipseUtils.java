@@ -3,6 +3,9 @@ package com.rambler.tasklipse.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
@@ -21,7 +24,8 @@ import com.rambler.tasklipse.model.Task;
 
 public class TasklipseUtils {
 
-	public static final String TASKLIPSE_PATTERN_TASK="#$";
+
+	public static final Pattern TASKLIPSE_PATTERN_TASK = Pattern.compile(".*#\\$.*");
 
 	public static IProject getProject(String projectName){
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
@@ -51,15 +55,8 @@ public class TasklipseUtils {
 		return taskList;
 	}
 
-	private static Task getTask(IMarker marker) {
-		String type="";
+	private static Task getTask(IMarker marker) throws CoreException {
 		long createdTime=0;
-		try{
-			type=marker.getType();
-		}
-		catch(CoreException e){
-			type="na";
-		}
 		try{
 			createdTime=marker.getCreationTime();
 		}
@@ -68,12 +65,11 @@ public class TasklipseUtils {
 		}
 
 		String message=marker.getAttribute(IMarker.MESSAGE,"na");
-
-		if(!message.contains(TASKLIPSE_PATTERN_TASK)){
+		Matcher matcher = TASKLIPSE_PATTERN_TASK.matcher(message);
+		if(!matcher.matches()){
 			return null;
 		}
-
-		Task task=new Task(marker.getAttribute(IMarker.MARKER, "na"),type,"1",message,marker.getAttribute(IMarker.TASK,"na"),createdTime,marker.getAttribute(IMarker.LOCATION,"1"),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
+		Task task=new Task(marker.getId(),marker.getAttribute(IMarker.MARKER, "na"),"TASK","1",message,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
 		return task;
 	}
 

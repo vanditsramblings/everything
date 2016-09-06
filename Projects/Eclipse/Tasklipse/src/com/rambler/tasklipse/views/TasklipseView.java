@@ -169,21 +169,7 @@ public class TasklipseView extends ViewPart {
 
 		for(TaskColumn taskCol:TaskColumn.values()){
 
-			if(taskCol.equals(TaskColumn.NAME)){
-				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
-				final TableColumn column = col.getColumn();
-				column.setText(taskCol.getDisplayName());
-				column.setWidth(taskCol.getBounds());
-				column.setResizable(true);
-				column.setMoveable(true);
-				col.setLabelProvider(new ColumnLabelProvider() {
-					@Override
-					public String getText(Object element) {
-						return ((Task)element).getTaskName();
-					}
-				});
-			}
-			else if(taskCol.equals(TaskColumn.PRIORITY)){
+			if(taskCol.equals(TaskColumn.PRIORITY)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
 				final TableColumn column = col.getColumn();
 				column.setText(taskCol.getDisplayName());
