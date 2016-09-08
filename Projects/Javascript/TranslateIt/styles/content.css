@@ -1,0 +1,14 @@
+.translateit-popover{
+    position: absolute;
+    padding: 15px;
+    margin: 50px 0 3em;
+    text-align: left;
+    color: #fff;
+    background: #333;
+    border-radius: 10px;
+    z-index:999;
+    width:200; 
+    height:100;
+    visibility:hidden;
+    display:block;
+}

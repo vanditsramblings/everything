@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "TranslateIt",
+  "version": "0.1",
+  "content_scripts": [
+  {
+    "matches": [
+      "<all_urls>"
+    ],
+    "js": ["external/jquery-3.1.0.slim.min.js","scripts/content.js"],
+    "css":["styles/content.css"]
+  }
+  ],
+  "background": {
+  "scripts": ["scripts/background.js"]
+  },
+  "browser_action": {
+  "default_icon": "icon/small.png",
+  "default_popup": "templates/popup.html"
+  }
+}
