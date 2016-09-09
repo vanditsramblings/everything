@@ -6,9 +6,9 @@
     color: #fff;
     background: #333;
     border-radius: 10px;
-    z-index:999;
-    width:200; 
-    height:100;
+    z-index:-1;
+    width:200px; 
+    height:100px;
     visibility:hidden;
     display:block;
 }
