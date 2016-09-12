@@ -10,7 +10,8 @@ import java.util.Date;
  */
 
 public class Task {
-
+	
+	private long id=0;
 	private String taskName;
 	private String taskType;
 	private int priority=0;
@@ -21,8 +22,9 @@ public class Task {
 	private String taskProject;
 	private int dueDays=0;
 	private int lineNumber=0;
-
-	public Task(String taskName,String taskType,String priority,String message,String category,long createdTime,String taskResource,String lineNumber){
+	
+	public Task(long id,String taskName,String taskType,String priority,String message,String category,long createdTime,String taskResource,String lineNumber){
+		this.id=id;
 		this.taskName=taskName;
 		this.taskType=taskType;
 		try{
@@ -110,6 +112,22 @@ public class Task {
 	}
 	public void setLinenumber(int linenumber) {
 		this.lineNumber = linenumber;
+	}
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public int getLineNumber() {
+		return lineNumber;
+	}
+
+	public void setLineNumber(int lineNumber) {
+		this.lineNumber = lineNumber;
 	}
 
 

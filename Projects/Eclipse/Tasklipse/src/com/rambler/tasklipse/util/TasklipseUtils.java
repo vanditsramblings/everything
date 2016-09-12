@@ -26,6 +26,12 @@ public class TasklipseUtils {
 
 
 	public static final Pattern TASKLIPSE_PATTERN_TASK = Pattern.compile(".*#\\$.*");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*);");
+	
+	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*);");
+	public static final Pattern TASKLIPSE_PATTERN_TYPE2 = Pattern.compile(".*#type:(.*);");
 
 	public static IProject getProject(String projectName){
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
@@ -57,6 +63,8 @@ public class TasklipseUtils {
 
 	private static Task getTask(IMarker marker) throws CoreException {
 		long createdTime=0;
+		String priority="0";
+		String type="general";
 		try{
 			createdTime=marker.getCreationTime();
 		}
@@ -65,12 +73,45 @@ public class TasklipseUtils {
 		}
 
 		String message=marker.getAttribute(IMarker.MESSAGE,"na");
-		Matcher matcher = TASKLIPSE_PATTERN_TASK.matcher(message);
-		if(!matcher.matches()){
+		Matcher taskMatcher = TASKLIPSE_PATTERN_TASK.matcher(message);
+		if(!taskMatcher.matches()){
 			return null;
 		}
-		Task task=new Task(marker.getId(),marker.getAttribute(IMarker.MARKER, "na"),"TASK","1",message,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
+		
+		priority=getPriority(message);
+		type=getType(message);
+		
+		Task task=new Task(marker.getId(),marker.getAttribute(IMarker.MARKER, "na"),type,priority,message,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
 		return task;
+	}
+
+	private static String getPriority(String message) {
+		Matcher priorityMatcher = TASKLIPSE_PATTERN_PRIORITY1.matcher(message.toLowerCase());
+		if(priorityMatcher.matches()){
+			return priorityMatcher.group(1);
+		}
+		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY2.matcher(message.toLowerCase());
+		if(priorityMatcher.matches()){
+			return priorityMatcher.group(1);
+		}
+		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY3.matcher(message.toLowerCase());
+		if(priorityMatcher.matches()){
+			return priorityMatcher.group(1);
+		}
+		
+		return "0";
+	}
+	
+	private static String getType(String message) {
+		Matcher matcher = TASKLIPSE_PATTERN_TYPE1.matcher(message.toLowerCase());
+		if(matcher.matches()){
+			return matcher.group(1);
+		}
+		matcher = TASKLIPSE_PATTERN_TYPE2.matcher(message.toLowerCase());
+		if(matcher.matches()){
+			return matcher.group(1);
+		}
+		return "general";
 	}
 
 	public static String getTaskType(IMarker marker) {
