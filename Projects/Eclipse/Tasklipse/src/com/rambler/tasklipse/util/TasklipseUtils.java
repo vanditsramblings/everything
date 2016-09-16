@@ -26,12 +26,12 @@ public class TasklipseUtils {
 
 
 	public static final Pattern TASKLIPSE_PATTERN_TASK = Pattern.compile(".*#\\$.*");
-	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*);");
-	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*);");
-	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*?);?");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*)?;");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*?);");
 	
-	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*);");
-	public static final Pattern TASKLIPSE_PATTERN_TYPE2 = Pattern.compile(".*#type:(.*);");
+	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_TYPE2 = Pattern.compile(".*#type:(.*?);");
 
 	public static IProject getProject(String projectName){
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
@@ -80,8 +80,8 @@ public class TasklipseUtils {
 		
 		priority=getPriority(message);
 		type=getType(message);
-		
-		Task task=new Task(marker.getId(),marker.getAttribute(IMarker.MARKER, "na"),type,priority,message,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),marker.getAttribute(IMarker.LINE_NUMBER,"1"));
+		Map<String,Object> attrMap=marker.getAttributes();
+		Task task=new Task(Long.parseLong(attrMap.get("id").toString()),marker.getAttribute(IMarker.MARKER, "na"),type,priority,message,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),attrMap.get("lineNumber").toString());
 		return task;
 	}
 

@@ -5,8 +5,10 @@ Bundle-SymbolicName: Tasklipse;singleton:=true
 Bundle-Version: 1.0.0.1
 Bundle-Activator: com.rambler.tasklipse.Activator
 Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime
+ org.eclipse.core.runtime,
+ org.eclipse.swt
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Bundle-ActivationPolicy: lazy
 Import-Package: org.eclipse.core.resources,
+ org.eclipse.ui.ide,
  org.eclipse.ui.views.properties.tabbed

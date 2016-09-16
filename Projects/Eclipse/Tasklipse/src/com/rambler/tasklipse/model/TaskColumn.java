@@ -10,7 +10,7 @@ public enum TaskColumn {
 	PRIORITY("!","INT",40,0),
 	TYPE("Type","STRING",100,1),
 	MESSAGE("Message","STRING",350,2),
-	RESOURCE("Resource","STRING",200,3),
+	RESOURCE("Resource","STRING",300,3),
 	CREATEDTIME("Created Time","STRING",100,4);
 
 	private String displayName;

@@ -15,6 +15,7 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -25,6 +26,7 @@ import org.eclipse.ui.part.ViewPart;
 import com.rambler.tasklipse.model.Task;
 import com.rambler.tasklipse.model.TaskColumn;
 import com.rambler.tasklipse.provider.TasklipseLabelProvider;
+import com.rambler.tasklipse.provider.HyperLinkLabelProvider;
 import com.rambler.tasklipse.util.TasklipseUtils;
 
 /**
@@ -44,8 +46,8 @@ public class TasklipseView extends ViewPart {
 	TasklipseContentProvider contentProvider=new TasklipseContentProvider();
 	TasklipseLabelProvider labelProvider=new TasklipseLabelProvider();
 	IResourceChangeListener resourceChangedListener=null;
-	
-	
+
+
 	public static boolean TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER=true;
 
 	ArrayList<Task> tasks=new ArrayList<Task>();
@@ -181,6 +183,32 @@ public class TasklipseView extends ViewPart {
 					public String getText(Object element) {
 						return ((Task)element).getPriority()+"";
 					}
+
+					@Override
+					public Color getBackground(final Object element) {
+						if (element instanceof Task) {
+							int priority=((Task) element).getPriority();
+							if (priority==0) {
+								return super.getBackground(element);
+							}
+							else if(priority==1){
+								return new Color(Display.getDefault(), 0x72, 0xF0, 0x8D);	
+							}
+							else if(priority==2){
+								return new Color(Display.getDefault(), 0xAF, 0xFD, 0xC0);	
+							}
+							else if(priority==3){
+								return new Color(Display.getDefault(), 0xF6, 0xF6, 0x9A);	
+							}
+							else if(priority==4){
+								return new Color(Display.getDefault(), 0xEA, 0xA1, 0x32);	
+							}
+							else if(priority>=5){
+								return new Color(Display.getDefault(), 0xEC, 0x7A, 0x54);	
+							}
+						}
+						return super.getBackground(element);
+					}
 				});
 			}
 			else if(taskCol.equals(TaskColumn.MESSAGE)){
@@ -204,12 +232,15 @@ public class TasklipseView extends ViewPart {
 				column.setWidth(taskCol.getBounds());
 				column.setResizable(true);
 				column.setMoveable(true);
-				col.setLabelProvider(new ColumnLabelProvider() {
+
+				ColumnLabelProvider clp=new ColumnLabelProvider() {
 					@Override
 					public String getText(Object element) {
 						return ((Task)element).getTaskResource();
 					}
-				});
+				};
+
+				col.setLabelProvider(new HyperLinkLabelProvider(clp));
 			}
 			else if(taskCol.equals(TaskColumn.TYPE)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
