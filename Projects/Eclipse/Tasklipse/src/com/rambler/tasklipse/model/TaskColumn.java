@@ -7,11 +7,12 @@ package com.rambler.tasklipse.model;
 
 public enum TaskColumn {
 	
-	PRIORITY("!","INT",40,0),
-	TYPE("Type","STRING",100,1),
-	MESSAGE("Message","STRING",350,2),
-	RESOURCE("Resource","STRING",300,3),
-	CREATEDTIME("Created Time","STRING",100,4);
+	CB(" ","INT",20,0),
+	PRIORITY("!","INT",40,1),
+	TYPE("Type","STRING",100,2),
+	MESSAGE("Message","STRING",350,3),
+	RESOURCE("Resource","STRING",300,4),
+	CREATEDTIME("Created Time","STRING",100,5);
 
 	private String displayName;
 	private String colType;

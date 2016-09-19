@@ -1,6 +1,7 @@
 package com.rambler.tasklipse.views;
 
 
+import java.net.URL;
 import java.util.ArrayList;
 
 import org.eclipse.core.resources.IResourceChangeEvent;
@@ -8,25 +9,41 @@ import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.KeyAdapter;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.part.ViewPart;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 
+import com.rambler.tasklipse.comparator.TasklipseTableComparator;
+import com.rambler.tasklipse.filter.TaskFilter;
 import com.rambler.tasklipse.model.Task;
 import com.rambler.tasklipse.model.TaskColumn;
-import com.rambler.tasklipse.provider.TasklipseLabelProvider;
 import com.rambler.tasklipse.provider.HyperLinkLabelProvider;
+import com.rambler.tasklipse.provider.TasklipseLabelProvider;
 import com.rambler.tasklipse.util.TasklipseUtils;
 
 /**
@@ -43,14 +60,17 @@ public class TasklipseView extends ViewPart {
 
 	Table table=null;
 	TableViewer viewer=null;
-	TasklipseContentProvider contentProvider=new TasklipseContentProvider();
 	TasklipseLabelProvider labelProvider=new TasklipseLabelProvider();
 	IResourceChangeListener resourceChangedListener=null;
-
+	TasklipseTableComparator comparator=null;
+	TaskFilter taskFilter=null;
 
 	public static boolean TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER=true;
 
 	ArrayList<Task> tasks=new ArrayList<Task>();
+	private final Image CHECKED = getImage("checked.png");
+	private final Image UNCHECKED = getImage("unchecked.png");
+
 	/**
 	 * The constructor.
 	 */
@@ -58,8 +78,8 @@ public class TasklipseView extends ViewPart {
 	}
 
 	public void initView(Composite parent){
-		contentProvider=new TasklipseContentProvider();
 		labelProvider=new TasklipseLabelProvider();
+		taskFilter=new TaskFilter();
 	}
 
 	public void initTable(Composite parent) throws CoreException{
@@ -70,7 +90,16 @@ public class TasklipseView extends ViewPart {
 
 		createColumns();
 
+
+		//Setting content provider
 		viewer.setContentProvider(new TasklipseContentProvider());
+
+		//Setting Comparator to support Sorting
+		comparator=new TasklipseTableComparator();
+		viewer.setComparator(comparator);
+
+		viewer.setFilters(new ViewerFilter[]{taskFilter});
+
 		try {
 			tasks=TasklipseUtils.getTaskListForAllProjects();
 
@@ -78,15 +107,13 @@ public class TasklipseView extends ViewPart {
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 	private void createTableViewer(Composite parent) {
 
 		viewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL
-				| SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER);
+				| SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER | SWT.VIRTUAL | SWT.CHECK);
 		viewer.setUseHashlookup(true);
-		viewer.setContentProvider(contentProvider);
 		viewer.setLabelProvider(labelProvider);
 
 		//layout of the view
@@ -122,6 +149,8 @@ public class TasklipseView extends ViewPart {
 		//InitializingView
 		initView(parent);
 
+		initWidgets(parent);
+
 		//Initializing table
 		try {
 			initTable(parent);
@@ -133,6 +162,23 @@ public class TasklipseView extends ViewPart {
 		}
 	}  
 
+
+	private void initWidgets(Composite parent) {
+
+		GridLayout layout = new GridLayout(2, false);
+		parent.setLayout(layout);
+		Label searchLabel = new Label(parent, SWT.NONE);
+		searchLabel.setText("Search: ");
+		final Text filterText = new Text(parent, SWT.BORDER | SWT.SEARCH);
+		filterText.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL| GridData.HORIZONTAL_ALIGN_FILL));
+		filterText.addKeyListener(new KeyAdapter() {
+			public void keyReleased(KeyEvent ke) {
+				taskFilter.setSearchText(filterText.getText());
+				viewer.refresh();
+			}
+
+		});
+	}
 
 	private void addResourceChangeListener() {
 
@@ -170,6 +216,22 @@ public class TasklipseView extends ViewPart {
 	private void createColumns() {
 
 		for(TaskColumn taskCol:TaskColumn.values()){
+
+			if(taskCol.equals(TaskColumn.CB)){
+				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
+				final TableColumn column = col.getColumn();
+				column.setText(taskCol.getDisplayName());
+				column.setWidth(taskCol.getBounds());
+				column.setResizable(false);
+				column.setMoveable(false);
+				col.setLabelProvider(new ColumnLabelProvider() {
+					@Override
+					public String getText(Object element) {
+						return "";
+					}
+				});
+			}
+
 
 			if(taskCol.equals(TaskColumn.PRIORITY)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -210,6 +272,8 @@ public class TasklipseView extends ViewPart {
 						return super.getBackground(element);
 					}
 				});
+
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
 			else if(taskCol.equals(TaskColumn.MESSAGE)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -224,6 +288,7 @@ public class TasklipseView extends ViewPart {
 						return ((Task)element).getMessage();
 					}
 				});
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
 			else if(taskCol.equals(TaskColumn.RESOURCE)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -241,6 +306,7 @@ public class TasklipseView extends ViewPart {
 				};
 
 				col.setLabelProvider(new HyperLinkLabelProvider(clp));
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
 			else if(taskCol.equals(TaskColumn.TYPE)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -255,6 +321,7 @@ public class TasklipseView extends ViewPart {
 						return ((Task)element).getTaskType();
 					}
 				});
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
 			else if(taskCol.equals(TaskColumn.CREATEDTIME)){
 				TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -269,10 +336,28 @@ public class TasklipseView extends ViewPart {
 						return ((Task)element).getCreatedTime();
 					}
 				});
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
 		}
 
 	}
+
+
+	private SelectionAdapter getSelectionAdapter(final TableColumn column,
+			final int index) {
+		SelectionAdapter selectionAdapter = new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				comparator.setColumn(index);
+				int dir = comparator.getDirection();
+				viewer.getTable().setSortDirection(dir);
+				viewer.getTable().setSortColumn(column);
+				viewer.refresh();
+			}
+		};
+		return selectionAdapter;
+	}
+
 
 	private TableViewerColumn createTableColumn(String title, int bound, final int colNumber) {
 		TableViewerColumn col = new TableViewerColumn(viewer, SWT.LEFT);
@@ -284,7 +369,14 @@ public class TasklipseView extends ViewPart {
 		return col;
 	}
 
+	private static Image getImage(String file) {
 
+
+		Bundle bundle = FrameworkUtil.getBundle(TasklipseView.class);
+		URL url = FileLocator.find(bundle, new Path("icons/" + file), null);
+		ImageDescriptor image = ImageDescriptor.createFromURL(url);
+		return image.createImage();
+	}
 
 	private void showMessage(String message) {
 		MessageDialog.openInformation(

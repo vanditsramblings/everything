@@ -26,8 +26,8 @@ public class TasklipseUtils {
 
 
 	public static final Pattern TASKLIPSE_PATTERN_TASK = Pattern.compile(".*#\\$.*");
-	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*?);?");
-	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*)?;");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*?);");
 	
 	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*?);");
@@ -87,15 +87,15 @@ public class TasklipseUtils {
 
 	private static String getPriority(String message) {
 		Matcher priorityMatcher = TASKLIPSE_PATTERN_PRIORITY1.matcher(message.toLowerCase());
-		if(priorityMatcher.matches()){
+		if(priorityMatcher.find()){
 			return priorityMatcher.group(1);
 		}
 		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY2.matcher(message.toLowerCase());
-		if(priorityMatcher.matches()){
+		if(priorityMatcher.find()){
 			return priorityMatcher.group(1);
 		}
 		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY3.matcher(message.toLowerCase());
-		if(priorityMatcher.matches()){
+		if(priorityMatcher.find()){
 			return priorityMatcher.group(1);
 		}
 		
@@ -104,11 +104,11 @@ public class TasklipseUtils {
 	
 	private static String getType(String message) {
 		Matcher matcher = TASKLIPSE_PATTERN_TYPE1.matcher(message.toLowerCase());
-		if(matcher.matches()){
+		if(matcher.find()){
 			return matcher.group(1);
 		}
 		matcher = TASKLIPSE_PATTERN_TYPE2.matcher(message.toLowerCase());
-		if(matcher.matches()){
+		if(matcher.find()){
 			return matcher.group(1);
 		}
 		return "general";
