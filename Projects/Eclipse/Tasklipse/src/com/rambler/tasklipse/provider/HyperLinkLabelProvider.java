@@ -72,7 +72,7 @@ public class HyperLinkLabelProvider extends StyledCellLabelProvider {
 		@Override public void mouseDown(MouseEvent e) {
 			Point point = new Point(e.x,e.y);
 			ViewerCell cell = column.getCell(point);
-			if(cell.getElement()!=null){
+			if(cell!=null&&cell.getElement()!=null){
 				Task task=(Task) cell.getElement();
 				if (cell != null && cell.getColumnIndex() == columnIndex) {
 					Rectangle rect = cell.getTextBounds();

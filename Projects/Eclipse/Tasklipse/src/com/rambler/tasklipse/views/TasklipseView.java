@@ -10,6 +10,7 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
@@ -31,6 +32,9 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.TabFolder;
+import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.Text;
@@ -58,6 +62,7 @@ public class TasklipseView extends ViewPart {
 	 */
 	public static final String ID = "com.rambler.tasklipse.views.TasklipseView";
 
+	Composite composite=null;
 	Table table=null;
 	TableViewer viewer=null;
 	TasklipseLabelProvider labelProvider=new TasklipseLabelProvider();
@@ -82,10 +87,19 @@ public class TasklipseView extends ViewPart {
 		taskFilter=new TaskFilter();
 	}
 
-	public void initTable(Composite parent) throws CoreException{
+	public void initComponents(Composite parent) throws CoreException{
 
-		createTableViewer(parent);
+		final TabFolder tabFolder = new TabFolder(parent, SWT.NONE);
 
+		composite=new Composite(tabFolder,SWT.None);
+		GridLayout gl = new GridLayout(1,false);
+		composite.setLayout(gl);
+		initWidgets(composite);
+		
+		viewer=createTableViewer(composite);
+		
+		
+		
 		createTable();
 
 		createColumns();
@@ -100,21 +114,76 @@ public class TasklipseView extends ViewPart {
 
 		viewer.setFilters(new ViewerFilter[]{taskFilter});
 
+		createTabs(tabFolder);
+
+		tabFolder.setSelection(0);
+
+		tabFolder.addSelectionListener(new SelectionAdapter() {
+			String selected="Tasks";
+			public void widgetSelected(org.eclipse.swt.events.SelectionEvent event) {
+				if(!tabFolder.getSelection()[0].getText().equals(selected)){
+					selected=tabFolder.getSelection()[0].getText();
+					refreshView(selected);
+				}
+
+			}
+		});
+
 		try {
-			tasks=TasklipseUtils.getTaskListForAllProjects();
+			tasks=getTasks("Tasks");
 
 			viewer.setInput(tasks);
-		} catch (CoreException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
-	private void createTableViewer(Composite parent) {
+	private void refreshView(String selected) {
+
+		tasks=new ArrayList<Task>();
+		tasks=getTasks(selected);
+
+		viewer.setInput(tasks);
+		viewer.refresh();
+
+	}
+
+	private ArrayList<Task> getTasks(String selected){
+		ArrayList<Task> taskList=new ArrayList<Task>();
+		try{
+			NullProgressMonitor monitor = new NullProgressMonitor();
+			if (monitor.isCanceled())
+				return taskList;
+			monitor.beginTask("Fetching tasks", 10);
+			taskList=TasklipseUtils.getTaskListForAllProjects(selected);
+			monitor.worked(10);
+			monitor.done();
+			
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+		return taskList;
+	}
+
+	private void createTabs(TabFolder tabFolder) {
+		TabItem tasksTab = new TabItem(tabFolder, SWT.NONE);
+		tasksTab.setText("Tasks");
+		tasksTab.setToolTipText("All active tasks");
+		tasksTab.setControl(composite);
+
+		TabItem archivedTab = new TabItem(tabFolder, SWT.NONE);
+		archivedTab.setText("Archived");
+		archivedTab.setToolTipText("All archived tasks");
+		archivedTab.setControl(composite);
+	}
+
+	private TableViewer createTableViewer(Composite parent) {
 
 		viewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL
 				| SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER | SWT.VIRTUAL | SWT.CHECK);
 		viewer.setUseHashlookup(true);
 		viewer.setLabelProvider(labelProvider);
+
 
 		//layout of the view
 		//-----------------------------------------------------
@@ -128,6 +197,8 @@ public class TasklipseView extends ViewPart {
 		//-----------------------------------------------------
 
 		viewer.setColumnProperties(getColumnNames());
+
+		return viewer;
 
 	}
 
@@ -149,11 +220,9 @@ public class TasklipseView extends ViewPart {
 		//InitializingView
 		initView(parent);
 
-		initWidgets(parent);
-
 		//Initializing table
 		try {
-			initTable(parent);
+			initComponents(parent);
 			if(TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER)
 				addResourceChangeListener();
 		} catch (CoreException e) {
@@ -164,9 +233,7 @@ public class TasklipseView extends ViewPart {
 
 
 	private void initWidgets(Composite parent) {
-
-		GridLayout layout = new GridLayout(2, false);
-		parent.setLayout(layout);
+		
 		Label searchLabel = new Label(parent, SWT.NONE);
 		searchLabel.setText("Search: ");
 		final Text filterText = new Text(parent, SWT.BORDER | SWT.SEARCH);
@@ -176,7 +243,6 @@ public class TasklipseView extends ViewPart {
 				taskFilter.setSearchText(filterText.getText());
 				viewer.refresh();
 			}
-
 		});
 	}
 
@@ -190,8 +256,8 @@ public class TasklipseView extends ViewPart {
 				try {
 					if (event.getType() != IResourceChangeEvent.POST_CHANGE)
 						return;
-					tasks=TasklipseUtils.getTaskListForAllProjects();
-				} catch (CoreException e) {
+					tasks=getTasks("Tasks");
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 				Display.getDefault().asyncExec(new Runnable() {

@@ -52,13 +52,14 @@ public class TasklipseUtils {
 		IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 		return Arrays.asList(markers);
 	}
-
-	public static  ArrayList<Task>  getTaskListForAllProjects() throws CoreException{
+	//asdf
+	//TODO updat ehtis subroutine
+	public static  ArrayList<Task>  getTaskListForAllProjects(String type) throws CoreException{
 		ArrayList<Task> taskList=new ArrayList<Task>();
 		for(IProject project:getAllProjects()){
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 			for(IMarker marker:markers){
-				Task task=getTask(marker);
+				Task task=getTask(marker,type);
 				if(task!=null)
 					taskList.add(task);
 			}
@@ -66,7 +67,7 @@ public class TasklipseUtils {
 		return taskList;
 	}
 
-	private static Task getTask(IMarker marker) throws CoreException {
+	private static Task getTask(IMarker marker, String type2) throws CoreException {
 		long createdTime=0;
 		String priority="0";
 		String type="Todo";
@@ -88,7 +89,7 @@ public class TasklipseUtils {
 		priority=getPriority(message);
 		//getting type/category of task , defaults to "Todo"
 		type=getType(message);
-		//gettine message of task , defaukts to "na"
+		//getting message of task , defaukts to "na"
 		parsedMessage=getMessage(message);
 		
 		Map<String,Object> attrMap=marker.getAttributes();
