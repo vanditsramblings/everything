@@ -29,6 +29,7 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
@@ -233,6 +234,15 @@ public class TasklipseView extends ViewPart {
 
 
 	private void initWidgets(Composite parent) {
+		
+		//Adding archive button
+		Button archive = new Button (parent, SWT.PUSH);
+		archive.setText("Archive");
+		
+		//Adding delete button
+		Button delete = new Button (parent, SWT.PUSH);
+		delete.setText("Delete");
+		
 		
 		Label searchLabel = new Label(parent, SWT.NONE);
 		searchLabel.setText("Search: ");

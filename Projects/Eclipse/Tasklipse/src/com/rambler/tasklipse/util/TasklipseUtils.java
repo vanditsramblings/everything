@@ -29,14 +29,17 @@ public class TasklipseUtils {
 	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*?);");
-	
+
 	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_TYPE2 = Pattern.compile(".*#type:(.*?);");
-	
+
 	public static final Pattern TASKLIPSE_PATTERN_MESSAGE1 = Pattern.compile(".*#m:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_MESSAGE2 = Pattern.compile(".*#message:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_MESSAGE3 = Pattern.compile(".*#desc:(.*?);");
 	public static final Pattern TASKLIPSE_PATTERN_MESSAGE4 = Pattern.compile(".*#d:(.*?);");
+
+	public static final Pattern TASKLIPSE_PATTERN_ARCHIVED1 = Pattern.compile(".*#archived");
+	public static final Pattern TASKLIPSE_PATTERN_ARCHIVED2 = Pattern.compile(".*#a");
 
 	public static IProject getProject(String projectName){
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
@@ -67,7 +70,7 @@ public class TasklipseUtils {
 		return taskList;
 	}
 
-	private static Task getTask(IMarker marker, String type2) throws CoreException {
+	private static Task getTask(IMarker marker, String tabType) throws CoreException {
 		long createdTime=0;
 		String priority="0";
 		String type="Todo";
@@ -84,17 +87,34 @@ public class TasklipseUtils {
 		if(!taskMatcher.matches()){
 			return null;
 		}
-		
+
 		//getting priority of task , defaults to 0
 		priority=getPriority(message);
 		//getting type/category of task , defaults to "Todo"
 		type=getType(message);
-		//getting message of task , defaukts to "na"
+		//getting message of task , defaults to "na"
 		parsedMessage=getMessage(message);
-		
+
+		boolean isArchived= shouldBeAdded(message,tabType);
+		if(!isArchived && "Archived".equals(tabType)){
+			return null;
+		}
+
 		Map<String,Object> attrMap=marker.getAttributes();
 		Task task=new Task(Long.parseLong(attrMap.get("id").toString()),marker.getAttribute(IMarker.MARKER, "na"),type,priority,parsedMessage,"TASK",createdTime,marker.getResource().getFullPath().toOSString(),attrMap.get("lineNumber").toString());
 		return task;
+	}
+
+	private static boolean shouldBeAdded(String message, String tabType) {
+		Matcher messageMatcher = TASKLIPSE_PATTERN_ARCHIVED1.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return true;
+		}
+		messageMatcher = TASKLIPSE_PATTERN_ARCHIVED2.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return true;
+		}
+		return false;
 	}
 
 	private static String getMessage(String message) {
@@ -130,10 +150,10 @@ public class TasklipseUtils {
 		if(priorityMatcher.find()){
 			return priorityMatcher.group(1);
 		}
-		
+
 		return "0";
 	}
-	
+
 	private static String getType(String message) {
 		Matcher matcher = TASKLIPSE_PATTERN_TYPE1.matcher(message.toLowerCase());
 		if(matcher.find()){
