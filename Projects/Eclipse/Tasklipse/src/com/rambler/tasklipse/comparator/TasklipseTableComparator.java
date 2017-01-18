@@ -51,7 +51,7 @@ public class TasklipseTableComparator extends ViewerComparator {
 			rc = task1.getTaskResource().compareTo(task2.getTaskResource());
 			break;
 		case 4:
-			//TODO: #$ #p:5 add proper comparator for time 
+			//TODO: add proper comparator for time 
 			rc = task1.getCreatedTime().compareTo(task2.getCreatedTime());
 					break;		
 		default:

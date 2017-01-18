@@ -3,6 +3,12 @@ package com.rambler.tasklipse.model;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.runtime.CoreException;
 
 /**
  * @author vandit
@@ -10,40 +16,65 @@ import java.util.Date;
  */
 
 public class Task {
-	
+
 	private long id=0;
 	private String taskName;
-	private String taskType;
+	private String taskType="TODO";
 	private int priority=0;
-	private String message;
+	private String message="na";
 	private String category;
-	private String createdTime;
+	private String createdTime="0";
 	private String taskResource;
 	private String taskProject;
 	private int dueDays=0;
 	private int lineNumber=0;
-	
-	public Task(long id,String taskName,String taskType,String priority,String message,String category,long createdTime,String taskResource,String lineNumber){
+	private IMarker marker=null;
+	private boolean archived=false;
+
+	public static final Pattern TASKLIPSE_PATTERN_TASK = Pattern.compile(".*#\\$.*");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY1 = Pattern.compile(".*#!:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY2 = Pattern.compile(".*#p:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_PRIORITY3 = Pattern.compile(".*#priority:(.*?);");
+
+	public static final Pattern TASKLIPSE_PATTERN_TYPE1 = Pattern.compile(".*#t:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_TYPE2 = Pattern.compile(".*#type:(.*?);");
+
+	public static final Pattern TASKLIPSE_PATTERN_MESSAGE1 = Pattern.compile(".*#m:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_MESSAGE2 = Pattern.compile(".*#message:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_MESSAGE3 = Pattern.compile(".*#desc:(.*?);");
+	public static final Pattern TASKLIPSE_PATTERN_MESSAGE4 = Pattern.compile(".*#d:(.*?);");
+
+	public static final Pattern TASKLIPSE_PATTERN_ARCHIVED1 = Pattern.compile(".*#archived");
+	public static final Pattern TASKLIPSE_PATTERN_ARCHIVED2 = Pattern.compile(".*#a");
+
+	public Task(long id, IMarker marker) {
+
+		this.marker=marker;
 		this.id=id;
-		this.taskName=taskName;
-		this.taskType=taskType;
 		try{
-			this.priority=Integer.parseInt(priority);
+			createdTime=getTime(marker.getCreationTime());
+		}
+		catch(CoreException e){
+			createdTime="1";
+		}
+
+		String fullMessage=marker.getAttribute(IMarker.MESSAGE,"na");
+
+		//getting priority of task , defaults to 0
+		String priorityStr=getPriority(fullMessage);
+
+		try{
+			this.priority=Integer.parseInt(priorityStr);
 		}
 		catch(NumberFormatException e){
 			this.priority=1;
 		}
 
-		this.message=message;
-		this.category=category;
-		this.createdTime=getTime(createdTime);
-		this.taskResource=taskResource;
-		try{
-			this.lineNumber=Integer.parseInt(lineNumber);
-		}
-		catch(NumberFormatException e){
-			this.lineNumber=1;
-		}
+		//getting type/category of task , defaults to "Todo"
+		taskType=getType(fullMessage);
+		//getting message of task , defaults to "na"
+		message=getMessage(fullMessage);
+
 	}
 
 	private String getTime(long createdTime) {
@@ -130,6 +161,84 @@ public class Task {
 		this.lineNumber = lineNumber;
 	}
 
+	private static String getMessage(String message) {
+		Matcher messageMatcher = TASKLIPSE_PATTERN_MESSAGE1.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return messageMatcher.group(1);
+		}
+		messageMatcher = TASKLIPSE_PATTERN_MESSAGE2.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return messageMatcher.group(1);
+		}
+		messageMatcher = TASKLIPSE_PATTERN_MESSAGE3.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return messageMatcher.group(1);
+		}
+		messageMatcher = TASKLIPSE_PATTERN_MESSAGE4.matcher(message.toLowerCase());
+		if(messageMatcher.find()){
+			return messageMatcher.group(1);
+		}	
+		return "na";
+	}
 
+	private static String getPriority(String message) {
+		Matcher priorityMatcher = TASKLIPSE_PATTERN_PRIORITY1.matcher(message.toLowerCase());
+		if(priorityMatcher.find()){
+			return priorityMatcher.group(1);
+		}
+		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY2.matcher(message.toLowerCase());
+		if(priorityMatcher.find()){
+			return priorityMatcher.group(1);
+		}
+		priorityMatcher = TASKLIPSE_PATTERN_PRIORITY3.matcher(message.toLowerCase());
+		if(priorityMatcher.find()){
+			return priorityMatcher.group(1);
+		}
+
+		return "0";
+	}
+
+	private static String getType(String message) {
+		Matcher matcher = TASKLIPSE_PATTERN_TYPE1.matcher(message.toLowerCase());
+		if(matcher.find()){
+			return matcher.group(1);
+		}
+		matcher = TASKLIPSE_PATTERN_TYPE2.matcher(message.toLowerCase());
+		if(matcher.find()){
+			return matcher.group(1);
+		}
+		return "Todo";
+	}
+
+	public boolean delete(){
+		try{
+			if(marker!=null)
+			{
+				marker.setAttribute(IMarker.USER_EDITABLE, "true");
+				marker.delete();
+			}
+			//marker.getResource().deleteMarkers(""+marker.getId(), true, IProject.DEPTH_INFINITE);
+			return true;
+		}
+		catch(CoreException e){
+			return false;
+		}
+	}
+
+	public boolean archive() {
+		try {
+			if(marker!=null){
+				String fullMessage=marker.getAttribute(IMarker.MESSAGE,"na");
+				fullMessage.concat(" #archived");
+				marker.setAttribute(IMarker.MESSAGE, fullMessage);
+				archived=true;
+				return true;
+			}
+		}
+		catch (CoreException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
 
 }

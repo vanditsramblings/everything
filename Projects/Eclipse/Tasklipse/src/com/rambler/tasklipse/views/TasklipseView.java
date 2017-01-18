@@ -3,6 +3,7 @@ package com.rambler.tasklipse.views;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
@@ -16,29 +17,39 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.TableEditor;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.part.ViewPart;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
@@ -96,11 +107,9 @@ public class TasklipseView extends ViewPart {
 		GridLayout gl = new GridLayout(1,false);
 		composite.setLayout(gl);
 		initWidgets(composite);
-		
+
 		viewer=createTableViewer(composite);
-		
-		
-		
+
 		createTable();
 
 		createColumns();
@@ -159,7 +168,7 @@ public class TasklipseView extends ViewPart {
 			taskList=TasklipseUtils.getTaskListForAllProjects(selected);
 			monitor.worked(10);
 			monitor.done();
-			
+
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}
@@ -234,25 +243,65 @@ public class TasklipseView extends ViewPart {
 
 
 	private void initWidgets(Composite parent) {
-		
-		//Adding archive button
-		Button archive = new Button (parent, SWT.PUSH);
-		archive.setText("Archive");
-		
-		//Adding delete button
-		Button delete = new Button (parent, SWT.PUSH);
-		delete.setText("Delete");
-		
-		
-		Label searchLabel = new Label(parent, SWT.NONE);
+
+		Composite actions=new Composite(parent,SWT.None);
+		RowLayout layout = new RowLayout(SWT.HORIZONTAL);
+		layout.wrap = true;
+		layout.fill = false;
+		layout.justify = true;
+		actions.setLayout(layout);
+
+		Label searchLabel = new Label(actions, SWT.NONE| SWT.CENTER);
 		searchLabel.setText("Search: ");
-		final Text filterText = new Text(parent, SWT.BORDER | SWT.SEARCH);
-		filterText.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL| GridData.HORIZONTAL_ALIGN_FILL));
+		final Text filterText = new Text(actions, SWT.BORDER | SWT.SEARCH);
 		filterText.addKeyListener(new KeyAdapter() {
 			public void keyReleased(KeyEvent ke) {
 				taskFilter.setSearchText(filterText.getText());
 				viewer.refresh();
 			}
+		});
+
+		//Setting search text box width
+		RowData data = new RowData();
+		data.width=300;
+		filterText.setLayoutData(data);
+
+		//Adding archive button
+		Button archive = new Button (actions, SWT.PUSH);
+		archive.setText("Archive");
+
+		archive.addListener(SWT.Selection, new Listener() {
+			@Override
+			public void handleEvent(Event e) {
+				switch (e.type) {
+				case SWT.Selection:
+					IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
+					archiveSelectedTasks(selection.toList());
+					break;
+				}
+
+			}
+
+
+		});
+
+		//Adding delete button
+		Button delete = new Button (actions, SWT.PUSH);
+		delete.setText("Delete");
+
+		delete.addListener(SWT.Selection, new Listener() {
+			@Override
+			public void handleEvent(Event e) {
+				switch (e.type) {
+				case SWT.Selection:
+					IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
+					deleteSelectedTasks(selection.toList());
+					break;
+				}
+
+			}
+
+
 		});
 	}
 
@@ -414,10 +463,112 @@ public class TasklipseView extends ViewPart {
 				});
 				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
 			}
+			else if(taskCol.equals(TaskColumn.ACTIONS)){
+				TableViewerColumn col = new TableViewerColumn(viewer, SWT.RIGHT);
+				final TableColumn column = col.getColumn();
+				column.setText(taskCol.getDisplayName());
+				column.setWidth(taskCol.getBounds());
+				column.setResizable(true);
+				column.setMoveable(true);
+
+				col.setLabelProvider(new ColumnLabelProvider() {
+
+					@Override
+					public void update(ViewerCell cell) {
+						TableItem item = (TableItem) cell.getItem();
+
+						Composite buttonPane = new Composite(viewer.getTable(), SWT.NONE);
+						buttonPane.setLayout(new FillLayout());
+
+						Button button = new Button(buttonPane,SWT.NONE);
+						button.setText("A");
+						button.setToolTipText("Archive task");
+						button.addListener(SWT.Selection, new Listener(){
+
+							@Override
+							public void handleEvent(Event arg0) {
+								archiveTask(cell.getElement());
+							}
+						});
+
+						button = new Button(buttonPane,SWT.NONE);
+						button.setText("X");
+						button.setToolTipText("Delete Task");
+
+						button.addListener(SWT.Selection, new Listener(){
+
+							@Override
+							public void handleEvent(Event arg0) {
+								deleteTask(cell.getElement());
+							}
+						});
+
+
+						TableEditor editor = new TableEditor(viewer.getTable());
+						editor.grabHorizontal  = true;
+						editor.grabVertical = true;
+						editor.setEditor(buttonPane, item, taskCol.getColIndex());
+						editor.layout();
+					}
+
+				});
+				column.addSelectionListener(getSelectionAdapter(column, taskCol.getColIndex()));
+			}
 		}
 
 	}
 
+
+	//-----------------ACTIONS---------------------------
+
+
+	private void archiveTask(Object element) {
+		if(element instanceof Task){
+			((Task)element).archive();
+		}
+	}
+
+	private void deleteTask(Object element) {
+
+		MessageDialog dialog = new MessageDialog(
+				null, "Delete Task", null, "Are you sure you want to delete the selected task??",
+				MessageDialog.QUESTION,
+				new String[] {"Yes", "No"},
+				0); 
+		int result = dialog.open();
+		
+		if(result==0 && element instanceof Task){
+			boolean ret=((Task)element).delete();
+			if(ret){
+			  IActionBars bars = getViewSite().getActionBars();
+			  bars.getStatusLineManager().setMessage("Tasklipse:Selected task(s) deleted.");
+			}
+		}
+	}
+
+	private void deleteSelectedTasks(List list) {
+		MessageDialog dialog = new MessageDialog(
+				null, "Delete Task", null, "Are you sure you want to delete the selected task(s)??",
+				MessageDialog.QUESTION,
+				new String[] {"Yes", "No"},
+				0); 
+		int result = dialog.open();
+		if(result==0){
+			for(Object obj:list){
+				if(obj instanceof Task){
+					((Task)obj).delete();
+				}
+			}
+		}
+	}
+
+	private void archiveSelectedTasks(List list) {
+		for(Object task:list){
+			archiveTask(task);
+		}
+	}
+
+	//-------------------------------------------------
 
 	private SelectionAdapter getSelectionAdapter(final TableColumn column,
 			final int index) {
@@ -491,7 +642,14 @@ public class TasklipseView extends ViewPart {
 
 		@Override
 		public void inputChanged(Viewer arg0, Object arg1, Object arg2) {
-
+			//This ensures that the row controls are disposed whenever the input changes
+			if (((TableViewer)viewer).getTable() != null && ((TableViewer)viewer).getTable().getChildren() != null) {
+		        for (Control item : ((TableViewer)viewer).getTable().getChildren()) {
+		            if ((item != null) && (!item.isDisposed())) {  
+		                item.dispose();
+		            }
+		        }
+		    }
 		}
 
 		@Override
