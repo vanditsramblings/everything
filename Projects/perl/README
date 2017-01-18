@@ -1,0 +1,42 @@
+Perl Snippets
+------------------------------------
+
+1.backupFileWithCounter :
+
+This subroutine recursively/incrementally backs up files as per the counter passed.
+That way it retains all the previous backups
+Usage :  backupFile(file_name)
+This will create a backup : file_name.1 .
+Subsequent calls will create bacckups file_name.2 , file_name.3 etc 
+
+
+2.fileIO :
+
+This script provides various file IO Operations
+1.readLinesFromFile :
+               Usage: readLinesFromFile(file)
+			   Reads the file and returns the file lines as a array
+
+2.writeLinesToFile :
+               Usage: writeLinesToFile(targetFile,lineArray)
+			   Writes the passed lines to the specified file
+
+3.replaceToken :
+               Usage: replaceToken(targetFile,tokenValue,tokenRegex)
+			   Reads a file , finds the specified regex and replaces it with the passed value
+			   Example: replaceToken($targetFile,"123","AAA") :will replace all occurrence of AAA with 123
+
+4.deleteFile :
+               Usage: deleteFile(targetFile)
+			   Deletes the specified file
+			   Returns 1 if successful ,0 if failed
+
+5.renameFile :
+               Usage: renameFile(oldFile,newFile)
+			   Renames the file
+
+
+3.getHostAddr : 
+
+This routine fetches the Host address
+
