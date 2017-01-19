@@ -1,0 +1,18 @@
+Dockerize TOMCAT
+
+--This Dockerfile enables you to run tomcat in a docker container.
+
+Steps :
+
+--Create a folder(TOMCAT_DOCKER_HOME) and put the Dockerfile in that folder
+--Take the Tomcat installation/tar and put it under the previously created folder inside a folder "tomcat"
+--Build the Docker image under the folder using the command "docker build ."
+--Finally run the image using the docker run command : "docker run --name=tomcat <image_name>"
+
+
+Notes:
+
+--Put your webapp under the folder : TOMCAT_DOCKER_HOME/tomcat/webapps
+--Map the port 8080 to a local port
+--Volumize the folder "tomcat/webapps" if you want to deploy apps locally
+
