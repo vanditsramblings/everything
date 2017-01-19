@@ -1,3 +1,5 @@
 Bash Snippets
 
--<b>GetOldFiles</b> : script to get list of oldeest updated files in a directory
+-<b>GetOldFiles</b> : script to get list of oldeest updated files in a directory.
+
+-<b>GetArgs</b> : A simple native reusable script to fetch command line arguments in the script.
