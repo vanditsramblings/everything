@@ -37,16 +37,18 @@ public class TasklipseUtils {
 		IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 		return Arrays.asList(markers);
 	}
-	
+
 	//TODO update this subroutine
 	public static  ArrayList<Task>  getTaskListForAllProjects(String type) throws CoreException{
 		ArrayList<Task> taskList=new ArrayList<Task>();
 		for(IProject project:getAllProjects()){
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 			for(IMarker marker:markers){
-				Task task=getTask(marker,type);
-				if(task!=null)
-					taskList.add(task);
+				if(!marker.getAttribute(IMarker.DONE,new Boolean(false))){
+					Task task=getTask(marker,type);
+					if(task!=null)
+						taskList.add(task);
+				}
 			}
 		}
 		return taskList;
@@ -60,7 +62,7 @@ public class TasklipseUtils {
 			return null;
 		}
 
-		boolean isArchived= shouldBeAdded(message,tabType);
+		boolean isArchived= shouldBeAdded(marker,message);
 		if(!isArchived && "Archived".equals(tabType)){
 			return null;
 		}
@@ -70,21 +72,16 @@ public class TasklipseUtils {
 		return task;
 	}
 
-	private static boolean shouldBeAdded(String message, String tabType) {
-		Matcher messageMatcher = Task.TASKLIPSE_PATTERN_ARCHIVED1.matcher(message.toLowerCase());
-		if(messageMatcher.find()){
-			return true;
-		}
-		messageMatcher = Task.TASKLIPSE_PATTERN_ARCHIVED2.matcher(message.toLowerCase());
-		if(messageMatcher.find()){
-			return true;
-		}
-		return false;
+	private static boolean shouldBeAdded(IMarker marker, String message) {
+		Boolean isDone=marker.getAttribute(IMarker.DONE, false);
+		if(isDone)
+			return false;
+
+		return true;
 	}
 
 	public static String getTaskType(IMarker marker) {
 		return "TODO";
 	}
-
 
 }

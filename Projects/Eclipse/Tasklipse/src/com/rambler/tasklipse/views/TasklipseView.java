@@ -5,8 +5,11 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.resources.IResourceDeltaVisitor;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -268,7 +271,7 @@ public class TasklipseView extends ViewPart {
 
 		//Adding archive button
 		Button archive = new Button (actions, SWT.PUSH);
-		archive.setText("Archive");
+		archive.setText("Mark as Done");
 
 		archive.addListener(SWT.Selection, new Listener() {
 			@Override
@@ -279,14 +282,11 @@ public class TasklipseView extends ViewPart {
 					archiveSelectedTasks(selection.toList());
 					break;
 				}
-
 			}
-
-
 		});
 
 		//Adding delete button
-		Button delete = new Button (actions, SWT.PUSH);
+		/*Button delete = new Button (actions, SWT.PUSH);
 		delete.setText("Delete");
 
 		delete.addListener(SWT.Selection, new Listener() {
@@ -298,11 +298,9 @@ public class TasklipseView extends ViewPart {
 					deleteSelectedTasks(selection.toList());
 					break;
 				}
-
 			}
-
-
 		});
+		*/
 	}
 
 	private void addResourceChangeListener() {
@@ -316,9 +314,11 @@ public class TasklipseView extends ViewPart {
 					if (event.getType() != IResourceChangeEvent.POST_CHANGE)
 						return;
 					tasks=getTasks("Tasks");
+					event.getDelta().accept(new DeltaPrinter());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
+				
 				Display.getDefault().asyncExec(new Runnable() {
 					public void run() {
 						viewer.setInput(tasks);
@@ -330,6 +330,31 @@ public class TasklipseView extends ViewPart {
 		workspace.addResourceChangeListener(resourceChangedListener);
 
 	}
+	
+	class DeltaPrinter implements IResourceDeltaVisitor {
+	      public boolean visit(IResourceDelta delta) {
+	         IResource res = delta.getResource();
+	         switch (delta.getKind()) {
+	            case IResourceDelta.ADDED:
+	               System.out.print("Resource ");
+	               System.out.print(res.getFullPath());
+	               System.out.println(" was added.");
+	               break;
+	            case IResourceDelta.REMOVED:
+	               System.out.print("Resource ");
+	               System.out.print(res.getFullPath());
+	               System.out.println(" was removed.");
+	               break;
+	            case IResourceDelta.CHANGED:
+	               System.out.print("Resource ");
+	               System.out.print(res.getFullPath());
+	               System.out.println(" has changed.");
+	               break;
+	         }
+	         return false;
+	      }
+	}
+	
 
 	private void createTable(){
 		table = viewer.getTable();
@@ -481,8 +506,8 @@ public class TasklipseView extends ViewPart {
 						buttonPane.setLayout(new FillLayout());
 
 						Button button = new Button(buttonPane,SWT.NONE);
-						button.setText("A");
-						button.setToolTipText("Archive task");
+						button.setText("Done");
+						button.setToolTipText("Mark as Done");
 						button.addListener(SWT.Selection, new Listener(){
 
 							@Override
@@ -491,7 +516,8 @@ public class TasklipseView extends ViewPart {
 							}
 						});
 
-						button = new Button(buttonPane,SWT.NONE);
+						/*
+						 * button = new Button(buttonPane,SWT.NONE);
 						button.setText("X");
 						button.setToolTipText("Delete Task");
 
@@ -502,7 +528,7 @@ public class TasklipseView extends ViewPart {
 								deleteTask(cell.getElement());
 							}
 						});
-
+						*/
 
 						TableEditor editor = new TableEditor(viewer.getTable());
 						editor.grabHorizontal  = true;
