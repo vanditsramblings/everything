@@ -1,0 +1,47 @@
+Deploy TOMCAT on Amazon EC2 using terraform
+----------------------------------------------------------------
+
+Using following configuration files you can deploy terraform on AWS EC2 cloud.
+
+
+Requirements :
+
+1.An amazon EC2 Account(Free tier compatible).
+  --Create a key pair file and download it. -This will be used to ssh into your instance remotely. 
+  --Create an access key and secret for your account. -This will be used by terraform to create the EC2 instance.
+
+2.Terraform installed on your machine.
+
+
+Steps:
+
+1.Create a new folder and place the enclosed files[tomcat.tf and variables.tf] there.We will call this folder TOMCAT_HOME
+
+2.Extract the tomcat tar under TOMCAT_HOME/tomcat.
+
+3.Place your web app/war under the webapp folder , i.e TOMCAT_HOME/tomcat/webapps
+
+4.Populate the variables.tf file with the access key, secret key and permission file.Other vars have 
+defaults , go through them if you want to change anything.
+
+5.From the TOMCAT_HOME run the following :
+
+  tomcat plan
+  this will give you an deployment overview and alert in case of any errors.
+
+6.Finally run the following to start the EC2 instance and deploy tomcat.
+
+  tomcat apply
+
+  * you can override variables through this command using -var option.
+
+
+PORTS :
+--This script creates a security group to expose ports.
+22 - to enable ssh to the instance
+8080 - the default tomcat port
+
+
+  
+
+
