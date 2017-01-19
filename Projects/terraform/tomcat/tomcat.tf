@@ -6,9 +6,14 @@ resource "aws_instance" "tomcat" {
   
   provisioner "remote-exec" {
       inline = [
-	  "sudo apt-get update",
-	  "sudo apt-get install -y --no-install-recommends unzip",
-	  "sudo apt-get clean",
+	  "sudo echo 'deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main' >> /etc/apt/sources.list",
+      "sudo echo 'deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main' >> /etc/apt/sources.list",
+      "sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C2518248EEA14886",
+      "sudo apt-get update",
+      "sudo echo oracle-java${JAVA_VER}-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections",
+      "sudo apt-get install -y --force-yes --no-install-recommends oracle-java${JAVA_VER}-installer oracle-java${JAVA_VER}-set-default",
+      "sudo apt-get clean",
+      "sudo rm -rf /var/cache/oracle-jdk${JAVA_VER}-installer",
 	  "sudo mkdir -p /home/tomcat ",
 	  "sudo chown -R ubuntu: /home/tomcat"
 	  ]
