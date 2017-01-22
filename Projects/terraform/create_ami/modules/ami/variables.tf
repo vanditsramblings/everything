@@ -1,4 +1,4 @@
-variable "ami_name" {
+variable "aws_ami_name" {
    type = "string"
    default = "my_ami"
    description = "AMI Name"

@@ -16,6 +16,12 @@ variable "aws_secret_key" {
   description = "AWS Secret key"
 }
 
+variable "aws_key_name" {
+  type = "string"
+  default = ""
+  description = "AWS Instance Key name"
+}
+
 variable "aws_base_ami_id" {
   type="string"
   default="ami-f9fb8c96"
