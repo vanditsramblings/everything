@@ -1,0 +1,47 @@
+Generete EC2 AMI in single step/process
+
+1.Introduction
+The problem AMI creation in EC2 is that one cannot create AMI without starting an instance first.
+So in order to create an AMI , you will first need to start an EC2 instance and then create an Amazon Machine 
+Instance(AMI) from it.
+This introduces several steps in the creation process , namely : Start Instance , Create AMI , Destroy instance.
+
+2.Solution
+Hence to tackle this problem ,  the underlined Terraform infrastructure , provides a single step way to create an 
+EC2 AMI.
+It employs terraform configuration to perform the aforementioned steps under a single call. , i.e , as part of a 
+single infra , it would :
+-Start an instance
+-Create an AMI from it
+-Destroy the previously created instance
+
+3.Components
+
+The supplied infrastructure includes following main components :
+
+a.)generate_ami.sh        : this shell will perform all the required tasks and generate an AMI.
+b.)Main config            : This is the main config files which bootstrap underlying modules.
+  --user_variables.tf     : You would populate the variables intialized in this script , or you can pass the variables 
+    as overrides using the [-v/--var] option of the generate_ami.sh script. 
+c.)Create Instance Module : This instance will govern the instance creation.You will write your privisioners here and 
+                            copy the required files which will be part of the AMI.
+d.)Create AMI Module      : This si the module which will create the AMI.
+ 
+
+4.Usage 
+
+./generate_ami --name <AMI_NAME> --var <OVERRIDEN VARS>
+
+Example : 
+
+./build_ami.sh -n "sample_ami" --var "aws_access_key=access_key" --var "aws_secret_key=secret_key" --var="aws_region=region" --var="aws_key_name=key_name" --var="aws_pem_file=key_file.pem"
+
+
+P.S. : 
+
+--Secret key and access keys are required to start instance and create ami.
+--Key file is required by provsioners to ssh/scp into the created instance.
+--Default base AMI in the user_variables.tf is Ubuntu's.Change it as per your requirement.
+
+
+
