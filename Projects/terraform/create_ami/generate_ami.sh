@@ -1,10 +1,9 @@
 #/bin/bash
 
-function showUsage() {
-  USAGE="\nUsage: generate_ami.sh"
-  USAGE+="\n\n [-n|--name]     :       AMI Name [Mandatory]"
-  USAGE+="\n\n [-v|--var]      :       Pass terraform vars using this option .(Ex : -var \"key=value\")[Pass secret key, access key ,region , etc through this option]\n"
-  echo $USAGE
+function usage() {
+  echo "Usage: generate_ami.sh"
+  echo "[-n|--name]     :       AMI Name [Mandatory]"
+  echo "[-v|--var]      :       Pass terraform vars using this option .(Ex : -var \"key=value\")[Pass secret key, access key ,region , etc through this option]"
 }
 
 
@@ -37,16 +36,19 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-echo "AMI NAME : $AMI_NAME"
-echo 
-
 MISSING_ARGS="-"
 FIRST=1
 
 if [ "$AMI_NAME" = "na" ]
 then
-  echo "Please enter the AMI NAME "
+  echo "Please enter the AMI NAME"
+  usage
+  exit 1
 fi
+
+
+echo "AMI NAME : $AMI_NAME"
+echo 
 
 echo "Generating AMI..."
 
