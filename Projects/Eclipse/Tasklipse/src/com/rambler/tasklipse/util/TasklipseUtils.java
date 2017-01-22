@@ -44,7 +44,8 @@ public class TasklipseUtils {
 		for(IProject project:getAllProjects()){
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 			for(IMarker marker:markers){
-				if(!marker.getAttribute(IMarker.DONE,new Boolean(false))){
+				String done=marker.getAttribute("TASKLIPSE_DONE", "false");
+				if(!"true".equals(done)){
 					Task task=getTask(marker,type);
 					if(task!=null)
 						taskList.add(task);

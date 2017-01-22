@@ -228,7 +228,8 @@ public class Task {
 	public boolean archive() {
 		try {
 			if(marker!=null){
-				marker.setAttribute(IMarker.DONE, true);
+				marker.setAttribute("TASKLIPSE_DONE", "true");
+				//marker.setAttribute(IMarker.DONE, true);
 				/*String fullMessage=marker.getAttribute(IMarker.MESSAGE,"na");
 				fullMessage.concat(" #archived");
 				marker.setAttribute(IMarker.MESSAGE, fullMessage);
