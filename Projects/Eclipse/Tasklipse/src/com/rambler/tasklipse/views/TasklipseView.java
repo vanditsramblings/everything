@@ -5,11 +5,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
-import org.eclipse.core.resources.IResourceDelta;
-import org.eclipse.core.resources.IResourceDeltaVisitor;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -314,7 +311,6 @@ public class TasklipseView extends ViewPart {
 					if (event.getType() != IResourceChangeEvent.POST_CHANGE)
 						return;
 					tasks=getTasks("Tasks");
-					event.getDelta().accept(new DeltaPrinter());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -329,32 +325,7 @@ public class TasklipseView extends ViewPart {
 		};
 		workspace.addResourceChangeListener(resourceChangedListener);
 
-	}
-	
-	class DeltaPrinter implements IResourceDeltaVisitor {
-	      public boolean visit(IResourceDelta delta) {
-	         IResource res = delta.getResource();
-	         switch (delta.getKind()) {
-	            case IResourceDelta.ADDED:
-	               System.out.print("Resource ");
-	               System.out.print(res.getFullPath());
-	               System.out.println(" was added.");
-	               break;
-	            case IResourceDelta.REMOVED:
-	               System.out.print("Resource ");
-	               System.out.print(res.getFullPath());
-	               System.out.println(" was removed.");
-	               break;
-	            case IResourceDelta.CHANGED:
-	               System.out.print("Resource ");
-	               System.out.print(res.getFullPath());
-	               System.out.println(" has changed.");
-	               break;
-	         }
-	         return false;
-	      }
-	}
-	
+	}	
 
 	private void createTable(){
 		table = viewer.getTable();

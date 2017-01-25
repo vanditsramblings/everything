@@ -12,6 +12,7 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.QualifiedName;
 
 import com.rambler.tasklipse.model.Task;
 
@@ -44,8 +45,10 @@ public class TasklipseUtils {
 		for(IProject project:getAllProjects()){
 			IMarker[] markers = project.findMarkers(IMarker.TASK, true, IResource.DEPTH_INFINITE);
 			for(IMarker marker:markers){
-				String done=marker.getAttribute("TASKLIPSE_DONE", "false");
-				if(!"true".equals(done)){
+				
+				Object property=marker.getResource().getPersistentProperty(new QualifiedName(marker.getResource().getName()+"tasklipse:"+marker.getAttribute(IMarker.MESSAGE, "msg"), "tasklipse"));
+				
+				if(property==null || !"done".equals(property.toString())){
 					Task task=getTask(marker,type);
 					if(task!=null)
 						taskList.add(task);
@@ -67,6 +70,8 @@ public class TasklipseUtils {
 		if(!isArchived && "Archived".equals(tabType)){
 			return null;
 		}
+		
+		
 
 		Map<String,Object> attrMap=marker.getAttributes();
 		Task task=new Task(Long.parseLong(attrMap.get("id").toString()),marker);
