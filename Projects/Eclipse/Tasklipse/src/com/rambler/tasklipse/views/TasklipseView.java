@@ -3,7 +3,6 @@ package com.rambler.tasklipse.views;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.List;
 
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
@@ -15,7 +14,10 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.jface.viewers.CheckStateChangedEvent;
+import org.eclipse.jface.viewers.CheckboxTableViewer;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ICheckStateListener;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
@@ -49,7 +51,6 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.part.ViewPart;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
@@ -60,7 +61,8 @@ import com.rambler.tasklipse.model.Task;
 import com.rambler.tasklipse.model.TaskColumn;
 import com.rambler.tasklipse.provider.HyperLinkLabelProvider;
 import com.rambler.tasklipse.provider.TasklipseLabelProvider;
-import com.rambler.tasklipse.util.TasklipseUtils;
+import com.rambler.tasklipse.service.TaskService;
+import com.rambler.tasklipse.service.impl.TaskServiceImpl;
 
 /**
  * @author vandit
@@ -74,27 +76,42 @@ public class TasklipseView extends ViewPart {
 	 */
 	public static final String ID = "com.rambler.tasklipse.views.TasklipseView";
 
-	Composite composite=null;
-	Table table=null;
-	TableViewer viewer=null;
-	TasklipseLabelProvider labelProvider=new TasklipseLabelProvider();
-	IResourceChangeListener resourceChangedListener=null;
-	TasklipseTableComparator comparator=null;
+	
+	//View Components
+	
+	Table table										=null;
+	Composite composite								=null;
+	CheckboxTableViewer viewer						=null;
+	
+	//Comparator
+	TasklipseTableComparator comparator				=null;
+	
+	//Provider
+	TasklipseLabelProvider labelProvider			=null;
+
+	//Resource change listener
+	IResourceChangeListener resourceChangedListener =null;
+	
+	//Filter
 	TaskFilter taskFilter=null;
+	
+	//Services
+	TaskService taskService=null;
 
 	public static boolean TASKLIPSE_PROP_RESOURCE_CHANGE_LISTENER=true;
 
 	ArrayList<Task> tasks=new ArrayList<Task>();
 	private final Image CHECKED = getImage("checked.png");
 	private final Image UNCHECKED = getImage("unchecked.png");
-
+	
 	/**
 	 * The constructor.
 	 */
 	public TasklipseView() {
 	}
 
-	public void initView(Composite parent){
+	public void init(Composite parent){
+		taskService=new TaskServiceImpl();
 		labelProvider=new TasklipseLabelProvider();
 		taskFilter=new TaskFilter();
 	}
@@ -165,7 +182,7 @@ public class TasklipseView extends ViewPart {
 			if (monitor.isCanceled())
 				return taskList;
 			monitor.beginTask("Fetching tasks", 10);
-			taskList=TasklipseUtils.getTaskListForAllProjects(selected);
+			taskList=taskService.getTaskListForAllProjects(selected);
 			monitor.worked(10);
 			monitor.done();
 
@@ -187,14 +204,13 @@ public class TasklipseView extends ViewPart {
 		archivedTab.setControl(composite);
 	}
 
-	private TableViewer createTableViewer(Composite parent) {
+	private CheckboxTableViewer createTableViewer(Composite parent) {
 
-		viewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL
+
+		viewer = CheckboxTableViewer.newCheckList(parent, SWT.MULTI | SWT.H_SCROLL
 				| SWT.V_SCROLL | SWT.FULL_SELECTION | SWT.BORDER | SWT.VIRTUAL | SWT.CHECK);
 		viewer.setUseHashlookup(true);
 		viewer.setLabelProvider(labelProvider);
-
-
 		//layout of the view
 		//-----------------------------------------------------
 		GridData gridData = new GridData();
@@ -205,8 +221,24 @@ public class TasklipseView extends ViewPart {
 		gridData.horizontalAlignment = GridData.FILL;
 		viewer.getControl().setLayoutData(gridData);
 		//-----------------------------------------------------
-
 		viewer.setColumnProperties(getColumnNames());
+
+		viewer.addCheckStateListener(new ICheckStateListener()
+		{
+			@Override
+			public void checkStateChanged(CheckStateChangedEvent event)
+			{	
+				Table table = (Table) viewer.getTable();
+				TableItem item = table.getItem(table.getSelectionIndex());
+				for (int col = 0; col < table.getColumnCount(); col++)
+				{
+					if(item.getChecked())
+						item.setChecked(false);
+					else
+						item.setChecked(true);  
+				}
+			}             
+		});
 
 		return viewer;
 
@@ -228,7 +260,7 @@ public class TasklipseView extends ViewPart {
 	public void createPartControl(Composite parent) {  
 
 		//InitializingView
-		initView(parent);
+		init(parent);
 
 		//Initializing table
 		try {
@@ -275,8 +307,9 @@ public class TasklipseView extends ViewPart {
 			public void handleEvent(Event e) {
 				switch (e.type) {
 				case SWT.Selection:
-					IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
-					archiveSelectedTasks(selection.toList());
+					IStructuredSelection selection = viewer.getSelection()!=null?(IStructuredSelection)viewer.getSelection():null;
+					if(selection!=null)
+						taskService.archiveTasks(selection.toList());
 					break;
 				}
 			}
@@ -297,7 +330,7 @@ public class TasklipseView extends ViewPart {
 				}
 			}
 		});
-		*/
+		 */
 	}
 
 	private void addResourceChangeListener() {
@@ -314,7 +347,7 @@ public class TasklipseView extends ViewPart {
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				
+
 				Display.getDefault().asyncExec(new Runnable() {
 					public void run() {
 						viewer.setInput(tasks);
@@ -474,11 +507,13 @@ public class TasklipseView extends ViewPart {
 						TableItem item = (TableItem) cell.getItem();
 
 						Composite buttonPane = new Composite(viewer.getTable(), SWT.NONE);
+
 						buttonPane.setLayout(new FillLayout());
 
 						Button button = new Button(buttonPane,SWT.NONE);
 						button.setText("Done");
 						button.setToolTipText("Mark as Done");
+						button.setSize(20,20);
 						button.addListener(SWT.Selection, new Listener(){
 
 							@Override
@@ -499,7 +534,7 @@ public class TasklipseView extends ViewPart {
 								deleteTask(cell.getElement());
 							}
 						});
-						*/
+						 */
 
 						TableEditor editor = new TableEditor(viewer.getTable());
 						editor.grabHorizontal  = true;
@@ -515,57 +550,6 @@ public class TasklipseView extends ViewPart {
 
 	}
 
-
-	//-----------------ACTIONS---------------------------
-
-
-	private void archiveTask(Object element) {
-		if(element instanceof Task){
-			((Task)element).archive();
-		}
-	}
-
-	private void deleteTask(Object element) {
-
-		MessageDialog dialog = new MessageDialog(
-				null, "Delete Task", null, "Are you sure you want to delete the selected task??",
-				MessageDialog.QUESTION,
-				new String[] {"Yes", "No"},
-				0); 
-		int result = dialog.open();
-		
-		if(result==0 && element instanceof Task){
-			boolean ret=((Task)element).delete();
-			if(ret){
-			  IActionBars bars = getViewSite().getActionBars();
-			  bars.getStatusLineManager().setMessage("Tasklipse:Selected task(s) deleted.");
-			}
-		}
-	}
-
-	private void deleteSelectedTasks(List list) {
-		MessageDialog dialog = new MessageDialog(
-				null, "Delete Task", null, "Are you sure you want to delete the selected task(s)??",
-				MessageDialog.QUESTION,
-				new String[] {"Yes", "No"},
-				0); 
-		int result = dialog.open();
-		if(result==0){
-			for(Object obj:list){
-				if(obj instanceof Task){
-					((Task)obj).delete();
-				}
-			}
-		}
-	}
-
-	private void archiveSelectedTasks(List list) {
-		for(Object task:list){
-			archiveTask(task);
-		}
-	}
-
-	//-------------------------------------------------
 
 	private SelectionAdapter getSelectionAdapter(final TableColumn column,
 			final int index) {
@@ -641,12 +625,12 @@ public class TasklipseView extends ViewPart {
 		public void inputChanged(Viewer arg0, Object arg1, Object arg2) {
 			//This ensures that the row controls are disposed whenever the input changes
 			if (((TableViewer)viewer).getTable() != null && ((TableViewer)viewer).getTable().getChildren() != null) {
-		        for (Control item : ((TableViewer)viewer).getTable().getChildren()) {
-		            if ((item != null) && (!item.isDisposed())) {  
-		                item.dispose();
-		            }
-		        }
-		    }
+				for (Control item : ((TableViewer)viewer).getTable().getChildren()) {
+					if ((item != null) && (!item.isDisposed())) {  
+						item.dispose();
+					}
+				}
+			}
 		}
 
 		@Override

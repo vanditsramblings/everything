@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.QualifiedName;
 
 /**
  * @author vandit
@@ -121,7 +122,7 @@ public class Task {
 		this.createdTime = createdTime;
 	}
 	public String getTaskResource() {
-		return taskResource;
+		return marker.getResource().getFullPath().toOSString();
 	}
 	public void setTaskResource(String taskResource) {
 		this.taskResource = taskResource;
@@ -214,7 +215,7 @@ public class Task {
 		try{
 			if(marker!=null)
 			{
-				marker.setAttribute(IMarker.USER_EDITABLE, "true");
+				marker.setAttribute(IMarker.USER_EDITABLE, Boolean.parseBoolean("true"));
 				marker.delete();
 			}
 			//marker.getResource().deleteMarkers(""+marker.getId(), true, IProject.DEPTH_INFINITE);
@@ -228,9 +229,13 @@ public class Task {
 	public boolean archive() {
 		try {
 			if(marker!=null){
-				marker.setAttribute("TASKLIPSE_DONE", "true");
-				//marker.setAttribute(IMarker.DONE, true);
-				/*String fullMessage=marker.getAttribute(IMarker.MESSAGE,"na");
+				
+				marker.setAttribute(IMarker.USER_EDITABLE, Boolean.parseBoolean("true"));
+				marker.setAttribute(IMarker.MESSAGE, "Hello");
+				marker.getResource().setPersistentProperty(new QualifiedName(marker.getResource().getName()+"tasklipse:"+marker.getAttribute(IMarker.MESSAGE, "msg"),"tasklipse"), "done");
+				
+				/*
+				String fullMessage=marker.getAttribute(IMarker.MESSAGE,"na");
 				fullMessage.concat(" #archived");
 				marker.setAttribute(IMarker.MESSAGE, fullMessage);
 				*/
