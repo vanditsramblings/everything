@@ -13,11 +13,19 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.IViewSite;
 
 import com.rambler.tasklipse.model.Task;
 import com.rambler.tasklipse.service.TaskService;
 
 public class TaskServiceImpl implements TaskService {
+	
+	IViewSite viewSite=null;
+	
+	public TaskServiceImpl(IViewSite viewSite) {
+		this.viewSite=viewSite;
+	}
 
 	@Override
 	public IProject getProject(String projectName) {
@@ -74,8 +82,6 @@ public class TaskServiceImpl implements TaskService {
 		Map<String,Object> attrMap=marker.getAttributes();
 		Task task=new Task(Long.parseLong(attrMap.get("id").toString()),marker);
 		return task;
-
-		
 	}
 
 	@Override
@@ -96,7 +102,7 @@ public class TaskServiceImpl implements TaskService {
 			}*/
 		}
 	}
-	
+
 	@Override
 	public boolean archiveTasks(List list) {
 		for(Object task:list){
@@ -104,15 +110,20 @@ public class TaskServiceImpl implements TaskService {
 		}
 		return true;
 	}
-	
+
 	@Override
 	public boolean archiveTask(Object element) {
 		if(element instanceof Task){
-			return ((Task)element).archive();
+			if(((Task)element).archive()){
+				IActionBars bars = viewSite.getActionBars();
+				bars.getStatusLineManager().setMessage("Tasklipse:Selected task(s) archived.");
+			}
 		}
+
+		
 		return false;
 	}
-	
+
 	@Override
 	public void deleteSelectedTasks(List list) {
 		MessageDialog dialog = new MessageDialog(
@@ -129,8 +140,8 @@ public class TaskServiceImpl implements TaskService {
 			}
 		}
 	}
-	
-	
+
+
 	private boolean shouldBeAdded(IMarker marker, String message) {
 		Boolean isDone=marker.getAttribute(IMarker.DONE, false);
 		if(isDone)

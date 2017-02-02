@@ -3,6 +3,7 @@ package com.rambler.tasklipse.views;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
@@ -31,6 +32,7 @@ import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FillLayout;
@@ -78,7 +80,6 @@ public class TasklipseView extends ViewPart {
 
 	
 	//View Components
-	
 	Table table										=null;
 	Composite composite								=null;
 	CheckboxTableViewer viewer						=null;
@@ -111,7 +112,7 @@ public class TasklipseView extends ViewPart {
 	}
 
 	public void init(Composite parent){
-		taskService=new TaskServiceImpl();
+		taskService=new TaskServiceImpl(getViewSite());
 		labelProvider=new TasklipseLabelProvider();
 		taskFilter=new TaskFilter();
 	}
@@ -126,11 +127,8 @@ public class TasklipseView extends ViewPart {
 		initWidgets(composite);
 
 		viewer=createTableViewer(composite);
-
 		createTable();
-
 		createColumns();
-
 
 		//Setting content provider
 		viewer.setContentProvider(new TasklipseContentProvider());
@@ -158,7 +156,6 @@ public class TasklipseView extends ViewPart {
 
 		try {
 			tasks=getTasks("Tasks");
-
 			viewer.setInput(tasks);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -230,13 +227,12 @@ public class TasklipseView extends ViewPart {
 			{	
 				Table table = (Table) viewer.getTable();
 				TableItem item = table.getItem(table.getSelectionIndex());
-				for (int col = 0; col < table.getColumnCount(); col++)
-				{
+				/*for (int col = 0; col < table.getColumnCount(); col++){
 					if(item.getChecked())
 						item.setChecked(false);
 					else
 						item.setChecked(true);  
-				}
+				}*/
 			}             
 		});
 
@@ -302,16 +298,17 @@ public class TasklipseView extends ViewPart {
 		Button archive = new Button (actions, SWT.PUSH);
 		archive.setText("Mark as Done");
 
-		archive.addListener(SWT.Selection, new Listener() {
+		archive.addSelectionListener( new SelectionListener() {
 			@Override
-			public void handleEvent(Event e) {
-				switch (e.type) {
-				case SWT.Selection:
-					IStructuredSelection selection = viewer.getSelection()!=null?(IStructuredSelection)viewer.getSelection():null;
-					if(selection!=null)
-						taskService.archiveTasks(selection.toList());
-					break;
-				}
+			public void widgetDefaultSelected(SelectionEvent arg0) {
+	
+			}
+
+			@Override
+			public void widgetSelected(SelectionEvent arg0) {
+				Object[] selection = viewer.getCheckedElements()!=null?viewer.getCheckedElements():null;
+				if(selection!=null)
+					taskService.archiveTasks(Arrays.asList(selection));
 			}
 		});
 
@@ -357,7 +354,6 @@ public class TasklipseView extends ViewPart {
 			}
 		};
 		workspace.addResourceChangeListener(resourceChangedListener);
-
 	}	
 
 	private void createTable(){
@@ -518,7 +514,7 @@ public class TasklipseView extends ViewPart {
 
 							@Override
 							public void handleEvent(Event arg0) {
-								archiveTask(cell.getElement());
+								taskService.archiveTask(cell.getElement());
 							}
 						});
 
