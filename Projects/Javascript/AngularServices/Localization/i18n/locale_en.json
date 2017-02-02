@@ -1,0 +1,13 @@
+{	
+	"main":
+	{
+		"header":"Header",
+		"title":"Title"
+	
+	},
+	"contact":
+	{
+		"contactUs":"Contact Us",
+		"placeholder.name":"Enter your name"
+	}
+}

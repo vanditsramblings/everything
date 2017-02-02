@@ -1,0 +1,16 @@
+Angular Services
+
+The underling file provides various re-usable and pluggable services which can be 
+used in any angular application.
+
+Contents :
+
+1.Localization Service
+
+-- This service enables localization.
+-- The init localization function is called from the Home controller to load the 
+   local strings as per the the locale set in the rootscope.
+-- The default locale is "en"
+
+Usage :
+
