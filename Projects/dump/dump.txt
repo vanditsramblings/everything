@@ -1,38 +1,33 @@
-Nice — this is a good fit for the DataStax driver’s RequestTracker hook (it lets you observe every request the driver executes) and you only need to change session/template wiring in Spring. Below I give:
-	•	a practical, minimally-intrusive design that keeps DB-first and then publishes synchronously to Kafka;
-	•	a robust RequestTracker implementation (KafkaPublishingRequestTracker) that reconstructs the full CQL (best-effort) and extracts partition-key values;
-	•	Spring wiring showing how to register the tracker with the CqlSession that Spring Data creates;
-	•	helper utilities used by the tracker (CQL renderer / placeholder replacer / JSON payload builder);
-	•	caveats and limitations and better alternatives (outbox / CDC) with references.
+public class CorrelationIdSession implements CqlSession {
 
-I based approach on the DataStax Java Driver request-tracker API and codec registry (so we reuse the driver for formatting values and partition-key indices), and on Spring Data Cassandra’s ability to customize the CqlSessionBuilder. (Docs: Request tracker & RequestLogger, PreparedStatement APIs and partition key indices, CodecRegistry, Spring SessionBuilderConfigurer.)  ￼
+    private final CqlSession delegate;
+    private final Supplier<String> correlationIdSupplier;
 
-⸻
+    public CorrelationIdSession(CqlSession delegate, Supplier<String> supplier) {
+        this.delegate = delegate;
+        this.correlationIdSupplier = supplier;
+    }
 
-Design summary (short)
-	1.	Create a RequestTracker implementation that:
-	•	on onSessionReady(...) captures the Session/codec registry reference,
-	•	on onSuccess(...) (and optionally onError(...)) inspects the Request (Simple/Bound/Batch),
-	•	if it is a write (INSERT/UPDATE/DELETE/BATCH), reconstructs a full-CQL string (replace bind markers with formatted literals using the driver’s codecs), extracts keyspace/table, finds partition-key column indices from the PreparedStatement (when available) and reads bound values, then synchronously publishes a JSON envelope to Kafka via KafkaTemplate.send(...).get().
-	2.	Register that tracker when building the CqlSession used by Spring Data Cassandra. You can do that by providing a SessionBuilderConfigurer or by creating your own CqlSession bean and calling .withRequestTracker(...). This is minimally invasive: no repository code changes.  ￼
-	3.	The tracker uses the driver’s CodecRegistry + TypeCodec.format() (where possible) so formatting of values into CQL literal strings is consistent with the driver.  ￼
+    @Override
+    public ResultSet execute(Statement<?> statement) {
+        return delegate.execute(withCorrelationId(statement));
+    }
 
-⸻
+    @Override
+    public CompletionStage<AsyncResultSet> executeAsync(Statement<?> statement) {
+        return delegate.executeAsync(withCorrelationId(statement));
+    }
 
-Why this approach
-	•	Single place to intercept writes — the session-level tracker sees all queries executed by repositories or templates.
-	•	Uses driver-provided metadata (prepared statement variable definitions and getPartitionKeyIndices()) to reliably extract partition-key values when available (much more robust than naive string parsing).  ￼
-	•	No repo changes required — only session/template wiring and a new tracker bean.
+    private <T extends Statement<?>> T withCorrelationId(T stmt) {
+        String corrId = correlationIdSupplier.get();
+        if (corrId != null) {
+            return (T) stmt.setCustomPayload(
+                Map.of("correlation-id",
+                    ByteBuffer.wrap(corrId.getBytes(StandardCharsets.UTF_8)))
+            );
+        }
+        return stmt;
+    }
 
-⸻
-
-The code
-
-Below are the essential classes. The code is shown complete (imports included). You can copy/paste into your project and adapt package names, topic names, Kafka configuration, and logging preferences.
-
-Notes:
-I used Spring’s KafkaTemplate<String,String> for synchronous publishing (.send(...).get() blocks). This is simple; you can substitute a native KafkaProducer if you prefer. The tracker uses the driver CodecRegistry to format bound values to CQL literals when possible; otherwise it falls back to toString() with quotes for strings.
-
-⸻
-
-1) KafkaPublishingRequestTracker.java
+    // delegate all other methods to `delegate`
+}
