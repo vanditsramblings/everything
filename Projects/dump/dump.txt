@@ -1,388 +1,254 @@
-public class CorrelationIdSession implements CqlSession {
+package com.example.dualwrite.tracker;
 
-    private final CqlSession delegate;
-    private final Supplier<String> correlationIdSupplier;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
+import com.datastax.oss.driver.api.core.cql.*;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.tracker.RequestTracker;
+import com.datastax.oss.driver.api.core.session.Request;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.KafkaTemplate;
 
-    public CorrelationIdSession(CqlSession delegate, Supplier<String> supplier) {
-        this.delegate = delegate;
-        this.correlationIdSupplier = supplier;
-    }
-
-    @Override
-    public ResultSet execute(Statement<?> statement) {
-        return delegate.execute(withCorrelationId(statement));
-    }
-
-    @Override
-    public CompletionStage<AsyncResultSet> executeAsync(Statement<?> statement) {
-        return delegate.executeAsync(withCorrelationId(statement));
-    }
-
-    private <T extends Statement<?>> T withCorrelationId(T stmt) {
-        String corrId = correlationIdSupplier.get();
-        if (corrId != null) {
-            return (T) stmt.setCustomPayload(
-                Map.of("correlation-id",
-                    ByteBuffer.wrap(corrId.getBytes(StandardCharsets.UTF_8)))
-            );
-        }
-        return stmt;
-    }
-
-    // delegate all other methods to `delegate`
-}
-
-
-
-
-======================== pom.xml ========================
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>com.example</groupId>
-    <artifactId>cassandra-search</artifactId>
-    <version>1.0-SNAPSHOT</version>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.data</groupId>
-            <artifactId>spring-data-cassandra</artifactId>
-            <version>4.3.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>5.9.3</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.9.3</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M7</version>
-            </plugin>
-        </plugins>
-    </build>
-</project>
-
-======================== src/main/java/com/example/search/SearchMode.java ========================
-package com.example.search;
-
-public enum SearchMode {
-    CASE_SENSITIVE,
-    CASE_INSENSITIVE
-}
-
-======================== src/main/java/com/example/search/QueryFilter.java ========================
-package com.example.search;
-
-public class QueryFilter {
-    public enum Operator {
-        EQ, NEQ, IN, GT, GTE, LT, LTE,
-        LIKE, MATCHES
-    }
-
-    private final String field;
-    private final Operator operator;
-    private final Object value;
-    private final SearchMode searchMode;
-
-    public QueryFilter(String field, Operator operator, Object value) {
-        this(field, operator, value, SearchMode.CASE_SENSITIVE);
-    }
-
-    public QueryFilter(String field, Operator operator, Object value, SearchMode searchMode) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-        this.searchMode = searchMode;
-    }
-
-    public String getField() { return field; }
-    public Operator getOperator() { return operator; }
-    public Object getValue() { return value; }
-    public SearchMode getSearchMode() { return searchMode; }
-}
-
-======================== src/main/java/com/example/search/PlannedQuery.java ========================
-package com.example.search;
-
-import java.util.List;
-
-public class PlannedQuery {
-    private final String cql;
-    private final List<Object> params;
-    private final List<QueryFilter> inMemoryFilters;
-
-    public PlannedQuery(String cql, List<Object> params, List<QueryFilter> inMemoryFilters) {
-        this.cql = cql;
-        this.params = params;
-        this.inMemoryFilters = inMemoryFilters;
-    }
-
-    public String getCql() { return cql; }
-    public List<Object> getParams() { return params; }
-    public List<QueryFilter> getInMemoryFilters() { return inMemoryFilters; }
-}
-
-======================== src/main/java/com/example/search/QueryPlanner.java ========================
-package com.example.search;
-
+import java.time.Instant;
 import java.util.*;
-
-public class QueryPlanner {
-    private final Set<String> partitionKeys;
-    private final Set<String> clusteringKeys;
-
-    public QueryPlanner(Set<String> partitionKeys, Set<String> clusteringKeys) {
-        this.partitionKeys = partitionKeys;
-        this.clusteringKeys = clusteringKeys;
-    }
-
-    public PlannedQuery planQuery(String table, List<QueryFilter> filters) {
-        List<QueryFilter> pkFilters = new ArrayList<>();
-        List<QueryFilter> ckFilters = new ArrayList<>();
-        List<QueryFilter> inMem = new ArrayList<>();
-
-        for (QueryFilter f : filters) {
-            if (partitionKeys.contains(f.getField())) {
-                pkFilters.add(f);
-            } else if (clusteringKeys.contains(f.getField())) {
-                ckFilters.add(f);
-            } else {
-                inMem.add(f);
-            }
-        }
-
-        if (pkFilters.isEmpty()) {
-            throw new IllegalArgumentException("Partition key filter is mandatory for Cassandra");
-        }
-
-        StringBuilder sb = new StringBuilder("SELECT * FROM ").append(table).append(" WHERE ");
-        List<Object> params = new ArrayList<>();
-        List<String> clauses = new ArrayList<>();
-
-        for (QueryFilter f : pkFilters) {
-            clauses.add(f.getField() + " = ?");
-            params.add(f.getValue());
-        }
-
-        for (QueryFilter f : ckFilters) {
-            switch (f.getOperator()) {
-                case EQ:
-                    clauses.add(f.getField() + " = ?");
-                    params.add(f.getValue());
-                    break;
-                case GT:
-                    clauses.add(f.getField() + " > ?");
-                    params.add(f.getValue());
-                    break;
-                case GTE:
-                    clauses.add(f.getField() + " >= ?");
-                    params.add(f.getValue());
-                    break;
-                case LT:
-                    clauses.add(f.getField() + " < ?");
-                    params.add(f.getValue());
-                    break;
-                case LTE:
-                    clauses.add(f.getField() + " <= ?");
-                    params.add(f.getValue());
-                    break;
-                default:
-                    inMem.add(f);
-            }
-        }
-
-        sb.append(String.join(" AND ", clauses));
-        return new PlannedQuery(sb.toString(), params, inMem);
-    }
-}
-
-======================== src/main/java/com/example/search/InMemoryFilterEngine.java ========================
-package com.example.search;
-
-import java.util.*;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class InMemoryFilterEngine<T> {
+/**
+ * Single-file implementation of a modern RequestTracker that emits JSON events capturing
+ * CQL + column/value/type metadata for writes (including batches).
+ */
+public class DualWriteRequestTrackerConfig {
 
-    public List<T> applyFilters(List<T> input, List<QueryFilter> filters, int limit) {
-        if (filters == null || filters.isEmpty()) {
-            return input.stream().limit(limit).collect(Collectors.toList());
+    // ==== Data model for event messages ====
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class CassandraRequestEvent {
+        private String keyspace;
+        private String table;
+        private String operation;
+        private Instant timestamp;
+        private List<StatementPayload> statements;
+
+        @Data
+        @AllArgsConstructor
+        @NoArgsConstructor
+        public static class StatementPayload {
+            private String cql;
+            private List<ColumnValue> columns;
         }
 
-        List<Predicate<T>> predicates = filters.stream()
-                .map(this::toPredicate)
-                .collect(Collectors.toList());
-
-        return input.stream()
-                .filter(e -> predicates.stream().allMatch(p -> p.test(e)))
-                .limit(limit)
-                .collect(Collectors.toList());
-    }
-
-    private Predicate<T> toPredicate(QueryFilter f) {
-        return entity -> {
-            Object fv = getFieldValue(entity, f.getField());
-            if (fv == null) return false;
-
-            switch (f.getOperator()) {
-                case EQ: return Objects.equals(fv, f.getValue());
-                case NEQ: return !Objects.equals(fv, f.getValue());
-                case IN: return ((Collection<?>) f.getValue()).contains(fv);
-                case GT: return compare(fv, f.getValue()) > 0;
-                case GTE: return compare(fv, f.getValue()) >= 0;
-                case LT: return compare(fv, f.getValue()) < 0;
-                case LTE: return compare(fv, f.getValue()) <= 0;
-                case LIKE:
-                    String regex = likeToRegex(f.getValue().toString());
-                    return f.getSearchMode() == SearchMode.CASE_INSENSITIVE
-                        ? fv.toString().toLowerCase().matches(regex.toLowerCase())
-                        : fv.toString().matches(regex);
-                case MATCHES:
-                    return f.getSearchMode() == SearchMode.CASE_INSENSITIVE
-                        ? fv.toString().toLowerCase().matches(f.getValue().toString().toLowerCase())
-                        : fv.toString().matches(f.getValue().toString());
-                default:
-                    throw new UnsupportedOperationException("Unsupported operator " + f.getOperator());
-            }
-        };
-    }
-
-    private Object getFieldValue(Object bean, String fieldName) {
-        try {
-            var field = bean.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.get(bean);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to access field: " + fieldName, e);
+        @Data
+        @AllArgsConstructor
+        @NoArgsConstructor
+        public static class ColumnValue {
+            private String name;
+            private Object value;
+            private String type;
         }
     }
 
-    @SuppressWarnings({"unchecked","rawtypes"})
-    private int compare(Object o1, Object o2) {
-        return ((Comparable) o1).compareTo(o2);
-    }
+    // ==== RequestTracker implementation ====
 
-    private String likeToRegex(String likePattern) {
-        StringBuilder regex = new StringBuilder("^");
-        for (int i = 0; i < likePattern.length(); i++) {
-            char c = likePattern.charAt(i);
-            switch (c) {
-                case '%': regex.append(".*"); break;
-                case '_': regex.append("."); break;
-                case '\\\\':
-                    if (i + 1 < likePattern.length()) {
-                        regex.append("\\\\").append(likePattern.charAt(++i));
+    @Slf4j
+    public static class DualWriteRequestTracker implements RequestTracker {
+        private final KafkaTemplate<String, String> kafkaTemplate;
+        private final String topic;
+        private final ObjectMapper mapper = new ObjectMapper();
+
+        public DualWriteRequestTracker(KafkaTemplate<String, String> kafkaTemplate, String topic) {
+            this.kafkaTemplate = kafkaTemplate;
+            this.topic = topic;
+        }
+
+        @Override
+        public void onSuccess(Request request,
+                              long latencyNanos,
+                              DriverExecutionProfile executionProfile,
+                              Node node,
+                              String requestLogPrefix) {
+            try {
+                if (request instanceof Statement<?> stmt) {
+                    CassandraRequestEvent evt = buildEvent(stmt);
+                    if (evt != null) {
+                        String json = mapper.writeValueAsString(evt);
+                        // Partition key or topic key can be keyspace.table or more refined
+                        String key = (evt.getKeyspace() != null ? evt.getKeyspace() : "unknown")
+                                + "." + (evt.getTable() != null ? evt.getTable() : "unknown");
+                        kafkaTemplate.send(topic, key, json);
+                        log.debug("Dual-write event published: {}", json);
                     }
-                    break;
-                default:
-                    if ("[](){}.*+?$^|#\\".indexOf(c) >= 0) {
-                        regex.append("\\\\");
-                    }
-                    regex.append(c);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to build or publish dual-write event", e);
             }
         }
-        regex.append("$");
-        return regex.toString();
+
+        @Override
+        public void onError(Request request,
+                            Throwable error,
+                            long latencyNanos,
+                            DriverExecutionProfile executionProfile,
+                            Node node,
+                            String requestLogPrefix) {
+            // We do not emit events for failures; optionally log or metrics
+        }
+
+        @Override
+        public void onNodeSuccess(Request request, long latencyNanos,
+                                  DriverExecutionProfile executionProfile, Node node,
+                                  String requestLogPrefix) {
+            // optional node-level callback (not used)
+        }
+
+        @Override
+        public void onNodeError(Request request, Throwable error, long latencyNanos,
+                                DriverExecutionProfile executionProfile, Node node,
+                                String requestLogPrefix) {
+            // optional node-level callback (not used)
+        }
+
+        @Override
+        public void onSessionReady(CqlSession session) {
+            // called when the session is ready (optional)
+        }
+
+        /** Build the event representation from a Statement (could be batch or single). */
+        private CassandraRequestEvent buildEvent(Statement<?> stmt) {
+            if (stmt instanceof BatchStatement batch) {
+                List<CassandraRequestEvent.StatementPayload> parts = batch.getStatements().stream()
+                        .map(this::buildPayload).filter(Objects::nonNull).collect(Collectors.toList());
+                if (parts.isEmpty()) {
+                    return null;
+                }
+                return CassandraRequestEvent.builder()
+                        .timestamp(Instant.now())
+                        .operation("BATCH")
+                        .statements(parts)
+                        .build();
+            } else {
+                CassandraRequestEvent.StatementPayload payload = buildPayload(stmt);
+                if (payload == null) {
+                    return null;
+                }
+                String operation = detectOperation(payload.getCql());
+                String keyspace = extractKeyspace(payload.getCql());
+                String table = extractTable(payload.getCql());
+                return CassandraRequestEvent.builder()
+                        .timestamp(Instant.now())
+                        .operation(operation)
+                        .keyspace(keyspace)
+                        .table(table)
+                        .statements(Collections.singletonList(payload))
+                        .build();
+            }
+        }
+
+        /** Build a payload (CQL + columns) for a single statement (Bound or Simple). */
+        private CassandraRequestEvent.StatementPayload buildPayload(Statement<?> stmt) {
+            if (stmt instanceof BoundStatement bs) {
+                return fromBound(bs);
+            } else if (stmt instanceof SimpleStatement ss) {
+                return fromSimple(ss);
+            } else {
+                // not supported type (e.g. a custom Statement subtype) — skip
+                return null;
+            }
+        }
+
+        private CassandraRequestEvent.StatementPayload fromBound(BoundStatement bs) {
+            PreparedStatement ps = bs.getPreparedStatement();
+            String cql = ps.getQuery();
+            List<CassandraRequestEvent.ColumnValue> cols = new ArrayList<>();
+            for (ColumnDefinition def : ps.getVariableDefinitions()) {
+                String colName = def.getName().asInternal();
+                Object val = bs.getObject(def.getName());
+                String cqlType = def.getType().asCql(true, true);
+                cols.add(new CassandraRequestEvent.ColumnValue(colName, val, cqlType));
+            }
+            return new CassandraRequestEvent.StatementPayload(cql, cols);
+        }
+
+        private CassandraRequestEvent.StatementPayload fromSimple(SimpleStatement ss) {
+            String cql = ss.getQuery();
+            List<CassandraRequestEvent.ColumnValue> cols = new ArrayList<>();
+            // named values, if any
+            ss.getNamedValues().forEach((k, v) -> {
+                String typeName = v != null ? v.getClass().getSimpleName() : "null";
+                cols.add(new CassandraRequestEvent.ColumnValue(k, v, typeName));
+            });
+            // positional values, if any
+            List<Object> pos = ss.getPositionalValues();
+            for (int i = 0; i < pos.size(); i++) {
+                Object v = pos.get(i);
+                String typeName = v != null ? v.getClass().getSimpleName() : "null";
+                cols.add(new CassandraRequestEvent.ColumnValue("p" + i, v, typeName));
+            }
+            return new CassandraRequestEvent.StatementPayload(cql, cols);
+        }
+
+        /** Simple heuristic to detect operation from CQL text. */
+        private String detectOperation(String cql) {
+            String u = cql.trim().toUpperCase(Locale.ROOT);
+            if (u.startsWith("INSERT")) return "INSERT";
+            if (u.startsWith("UPDATE")) return "UPDATE";
+            if (u.startsWith("DELETE")) return "DELETE";
+            if (u.startsWith("BATCH")) return "BATCH";
+            return "UNKNOWN";
+        }
+
+        /** Naive extraction of keyspace from CQL “INSERT INTO ks.tbl …” */
+        private String extractKeyspace(String cql) {
+            String cu = cql.toUpperCase(Locale.ROOT);
+            int idx = cu.indexOf("INTO ");
+            if (idx >= 0) {
+                String after = cql.substring(idx + 5).trim();
+                String first = after.split("[\\s(]+")[0];
+                if (first.contains(".")) {
+                    return first.split("\\.")[0];
+                }
+            }
+            return null;
+        }
+
+        /** Naive extraction of table from CQL “INSERT INTO ks.tbl …” */
+        private String extractTable(String cql) {
+            String cu = cql.toUpperCase(Locale.ROOT);
+            int idx = cu.indexOf("INTO ");
+            if (idx >= 0) {
+                String after = cql.substring(idx + 5).trim();
+                String first = after.split("[\\s(]+")[0];
+                if (first.contains(".")) {
+                    return first.split("\\.")[1];
+                } else {
+                    return first;
+                }
+            }
+            return null;
+        }
     }
-}
 
-======================== src/main/java/com/example/search/User.java ========================
-package com.example.search;
+    // ==== Spring configuration to wire into session builder ====
 
-public class User {
-    public String user_id;
-    public String status;
-    public String email;
-    public int age;
+    @Configuration
+    public static class TrackerConfig {
 
-    public User(String user_id, String status, String email, int age) {
-        this.user_id = user_id;
-        this.status = status;
-        this.email = email;
-        this.age = age;
-    }
-}
-
-======================== src/test/java/com/example/search/InMemoryFilterEngineTest.java ========================
-package com.example.search;
-
-import org.junit.jupiter.api.Test;
-import java.util.*;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-public class InMemoryFilterEngineTest {
-
-    @Test
-    void testEqualsAndRange() {
-        List<User> users = Arrays.asList(
-            new User("u1", "ACTIVE", "a@gmail.com", 25),
-            new User("u2", "INACTIVE", "b@yahoo.com", 30),
-            new User("u3", "ACTIVE", "c@gmail.com", 40)
-        );
-
-        InMemoryFilterEngine<User> engine = new InMemoryFilterEngine<>();
-
-        List<QueryFilter> filters = Arrays.asList(
-            new QueryFilter("status", QueryFilter.Operator.EQ, "ACTIVE"),
-            new QueryFilter("age", QueryFilter.Operator.GT, 30)
-        );
-
-        List<User> result = engine.applyFilters(users, filters, 10);
-        assertEquals(1, result.size());
-        assertEquals("u3", result.get(0).user_id);
-    }
-
-    @Test
-    void testLikeCaseInsensitive() {
-        List<User> users = Arrays.asList(
-            new User("u1", "active", "abc@gmail.com", 25),
-            new User("u2", "ACTIVE", "b@yahoo.com", 30),
-            new User("u3", "pending", "user@GMAIL.com", 35)
-        );
-
-        InMemoryFilterEngine<User> engine = new InMemoryFilterEngine<>();
-
-        List<QueryFilter> filters = Arrays.asList(
-            new QueryFilter("status", QueryFilter.Operator.LIKE, "ACT%", SearchMode.CASE_INSENSITIVE),
-            new QueryFilter("email", QueryFilter.Operator.LIKE, "%gmail.com", SearchMode.CASE_INSENSITIVE)
-        );
-
-        List<User> result = engine.applyFilters(users, filters, 10);
-        assertEquals(1, result.size());
-        assertEquals("u1", result.get(0).user_id);
-    }
-
-    @Test
-    void testRegexMatch() {
-        List<User> users = Arrays.asList(
-            new User("u1", "ACTIVE", "abc@gmail.com", 25),
-            new User("u2", "ACTIVE", "def@outlook.com", 30),
-            new User("u3", "ACTIVE", "ghi@gmail.com", 35)
-        );
-
-        InMemoryFilterEngine<User> engine = new InMemoryFilterEngine<>();
-
-        List<QueryFilter> filters = Arrays.asList(
-            new QueryFilter("email", QueryFilter.Operator.MATCHES, ".*@gmail\\\\.com", SearchMode.CASE_SENSITIVE)
-        );
-
-        List<User> result = engine.applyFilters(users, filters, 10);
-        assertEquals(2, result.size());
+        @Bean
+        public CqlSession cqlSession(CqlSessionBuilder builder,
+                                     KafkaTemplate<String, String> kafkaTemplate) {
+            return builder
+                    .withRequestTracker(new DualWriteRequestTracker(kafkaTemplate, "cassandra-dualwrite"))
+                    .build();
+        }
     }
 }
